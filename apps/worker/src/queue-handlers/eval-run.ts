@@ -38,6 +38,16 @@ const MAX_INPUT_CHARS = 10_000;
 const DEFAULT_AGENT_TIMEOUT_MS = 30_000;
 const SUITE_CONCURRENCY = 10;
 
+function hasUsableGroqApiKey(): boolean {
+  const value = process.env.GROQ_API_KEY;
+  if (!value) {
+    return false;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return normalized.length > 0 && normalized !== "placeholder";
+}
+
 function normalizeRepoPath(path: string): string {
   return path.replace(/^\.\//, "").trim();
 }
@@ -268,8 +278,19 @@ export async function handleEvalRunJob(job: Job<EvalRunJobPayload>): Promise<voi
 
     const agentFn = createAgentFunction(config.agent);
     const suiteResults: SuiteRunResult[] = [];
+    const groqEnabled = hasUsableGroqApiKey();
 
     for (const suite of config.evals) {
+      if (suite.type === "llm_judge") {
+        if (!groqEnabled) {
+          console.log(`skipping ${suite.name}: GROQ_API_KEY missing or placeholder`);
+          continue;
+        }
+
+        console.log(`skipping ${suite.name}: strategy not yet implemented`);
+        continue;
+      }
+
       if (suite.type !== "golden_dataset") {
         console.log(`skipping ${suite.name}: strategy not yet implemented`);
         continue;

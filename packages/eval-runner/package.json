@@ -10,7 +10,8 @@
     "test": "pnpm run build && node --test $(find dist -name '*.test.js')"
   },
   "dependencies": {
-    "@agentura/types": "workspace:*"
+    "@agentura/types": "workspace:*",
+    "groq-sdk": "^0.37.0"
   },
   "devDependencies": {
     "typescript": "^5.7.3"

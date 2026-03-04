@@ -7,10 +7,10 @@
 
 ## Current Status
 
-**Active milestone:** 6 — Eval worker: golden dataset
-**Progress:** 5 / 17 milestones complete
-**Last updated:** Milestone 6 worker core implementation completed (awaiting manual end-to-end validation)
-**Next action:** Run Milestone 6 end-to-end test (PR-triggered eval run) and verify Supabase EvalRun + GitHub Check Run outputs
+**Active milestone:** 7 — Eval worker: LLM judge
+**Progress:** 6 / 17 milestones complete
+**Last updated:** Milestone 6 completed with manual end-to-end validation passing
+**Next action:** Implement Milestone 7 LLM judge strategy with deterministic scoring and retry/backoff handling
 
 ---
 
@@ -52,7 +52,7 @@ cd packages/cli && npx tsx src/index.ts run
 | 3 | Shared types + eval-runner | ✅ Complete | Shared interfaces implemented; eval-runner scorers/strategies/agent-callers and unit tests pass |
 | 4 | Next.js base + tRPC + GitHub OAuth | ✅ Complete | OAuth login/callback, protected routes, users.me, and health endpoint validated |
 | 5 | GitHub App: install + webhook | ✅ Complete | Webhook signature verification, installation/project sync, and eval-run enqueue validated end-to-end |
-| 6 | Eval worker: golden dataset | 🟡 In progress | Worker, queue handler, GitHub fetch/check helpers, and golden suite execution implemented; awaiting manual end-to-end validation |
+| 6 | Eval worker: golden dataset | ✅ Complete | Worker processes eval-run jobs end-to-end for golden_dataset, persists results, and updates GitHub Check Runs |
 | 7 | Eval worker: LLM judge | ⬜ Not started | — |
 | 8 | Eval worker: performance + embeddings | ⬜ Not started | — |
 | 9 | PR comment + Check Run | ⬜ Not started | — |
@@ -554,3 +554,33 @@ Milestone 6 — implement worker `eval-run` queue handler and golden_dataset str
 
 **Next session:**
 Milestone 6 — run manual end-to-end eval worker test and verify: completed `EvalRun` row in Supabase + GitHub Check Run appears on test PR
+
+## Session — 2026-03-04 23:32 UTC
+
+**Milestone:** 6 — Eval worker: golden dataset
+**Status:** COMPLETE
+
+**Files created:**
+- None
+
+**Files modified:**
+- `packages/db/prisma/schema.prisma` — changed `EvalRun.githubCheckRunId` from `Int?` to `BigInt?` to support large GitHub Check Run IDs
+- `apps/worker/src/queue-handlers/eval-run.ts` — updated check-run ID handling to store DB values as `bigint` and convert to `number` only for GitHub API calls
+- `docs/Documentation.md` — updated current status, milestone table, and appended this completion entry
+- `EVAL_TEST.md` — removed temporary Milestone 6 test file from repository
+
+**Decisions made:**
+- Store GitHub Check Run IDs as `BigInt` in database rows to avoid INT4 overflow while preserving API compatibility via explicit `Number(...)` conversion for outbound GitHub requests.
+
+**Validation results:**
+- `pnpm --filter @agentura/db exec prisma generate`: PASS
+- `pnpm run type-check`: PASS
+- Manual validation: EvalRun with status `completed` appears in Supabase: PASS
+- Manual validation: GitHub Check Run shows green on PR: PASS
+- Manual validation: worker processed golden dataset suite correctly: PASS
+
+**Issues found:**
+- `M6_TEST.md` was already absent at cleanup time; no additional removal action required.
+
+**Next session:**
+Milestone 7 — implement LLM judge strategy in worker with `temperature: 0`, structured JSON parsing, and retry/backoff behavior

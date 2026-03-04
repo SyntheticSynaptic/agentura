@@ -4,6 +4,7 @@ export { callSdkAgent } from "./agent-caller/sdk";
 
 export { scoreContains } from "./scorers/contains";
 export { scoreExactMatch } from "./scorers/exact-match";
+export { createGroqJudgeFunction } from "./scorers/llm-judge-scorer";
 export { cosineSimilarity, scoreSemanticSimilarity } from "./scorers/semantic-similarity";
 
 export { runGoldenDataset } from "./strategies/golden-dataset";
