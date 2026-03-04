@@ -67,7 +67,7 @@ model EvalRun {
   prNumber         Int?
   status           String        // pending | running | completed | failed
   triggeredBy      String        // github_app | cli | api
-  githubCheckRunId Int?
+  githubCheckRunId BigInt?
   overallPassed    Boolean?
   totalCases       Int?
   passedCases      Int?

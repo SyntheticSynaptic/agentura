@@ -188,8 +188,8 @@ function formatError(error: unknown): string {
 
 export async function handleEvalRunJob(job: Job<EvalRunJobPayload>): Promise<void> {
   let evalRunId: string | null = null;
-  let githubCheckRunId: number | null =
-    typeof job.data.checkRunId === "number" ? job.data.checkRunId : null;
+  let githubCheckRunId: bigint | null =
+    typeof job.data.checkRunId === "number" ? BigInt(job.data.checkRunId) : null;
 
   try {
     const { installationId, owner, repo, branch, commitSha, prNumber } = job.data;
@@ -255,14 +255,14 @@ export async function handleEvalRunJob(job: Job<EvalRunJobPayload>): Promise<voi
       repo,
       commitSha,
     });
-    githubCheckRunId = createdCheckRunId;
+    githubCheckRunId = BigInt(createdCheckRunId);
 
     await prisma.evalRun.update({
       where: {
         id: evalRun.id,
       },
       data: {
-        githubCheckRunId: createdCheckRunId,
+        githubCheckRunId,
       },
     });
 
@@ -355,7 +355,7 @@ export async function handleEvalRunJob(job: Job<EvalRunJobPayload>): Promise<voi
       await updateCheckRun(octokit, {
         owner,
         repo,
-        checkRunId: githubCheckRunId,
+        checkRunId: Number(githubCheckRunId),
         conclusion: overallPassed ? "success" : "failure",
         summary,
       });
@@ -388,7 +388,7 @@ export async function handleEvalRunJob(job: Job<EvalRunJobPayload>): Promise<voi
         await updateCheckRun(octokit, {
           owner: job.data.owner,
           repo: job.data.repo,
-          checkRunId: githubCheckRunId,
+          checkRunId: Number(githubCheckRunId),
           conclusion: "failure",
           summary: message,
         });
