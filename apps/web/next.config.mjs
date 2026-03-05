@@ -1,8 +1,12 @@
+import { PrismaPlugin } from "@prisma/nextjs-monorepo-workaround-plugin";
+
 const nextConfig = {
-  experimental: {
-    outputFileTracingIncludes: {
-      "/*": ["./node_modules/.pnpm/@prisma+client@*/**/*.node"],
-    },
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      config.plugins = [...config.plugins, new PrismaPlugin()];
+    }
+
+    return config;
   },
 };
 

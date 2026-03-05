@@ -1021,6 +1021,32 @@ Milestone 13 — rerun Railway deploy and verify worker startup log in productio
 **Next session:**
 Milestone 13 — redeploy Vercel and verify Prisma query engine initialization succeeds in production runtime
 
+## Session — 2026-03-05 12:05 UTC
+
+**Milestone:** 13 — Production Deployment
+**Status:** IN PROGRESS
+
+**Files created:**
+- None
+
+**Files modified:**
+- `apps/web/package.json` — added `@prisma/nextjs-monorepo-workaround-plugin` dependency
+- `apps/web/next.config.mjs` — replaced Prisma tracing include workaround with official `PrismaPlugin` webpack integration on server builds
+- `pnpm-lock.yaml` — lockfile updated for new plugin dependency
+- `docs/Documentation.md` — appended this session note
+
+**Decisions made:**
+- Switched to Prisma’s official monorepo workaround plugin for Next.js runtime bundling instead of manual `outputFileTracingIncludes`.
+
+**Validation results:**
+- `pnpm run build`: PASS (web build succeeds; non-blocking local DNS warnings for unavailable Upstash hostname still appear in this environment)
+
+**Issues found:**
+- None blocking
+
+**Next session:**
+Milestone 13 — rerun Vercel production build and confirm runtime no longer throws query engine missing error
+
 ## Session — 2026-03-05 10:45 UTC
 
 **Milestone:** 13 — Production Deployment
