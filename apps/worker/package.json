@@ -6,7 +6,8 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc --outDir dist",
+    "start": "node dist/index.js",
     "type-check": "tsc --noEmit -p tsconfig.json"
   },
   "devDependencies": {

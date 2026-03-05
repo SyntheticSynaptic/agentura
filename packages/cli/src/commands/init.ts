@@ -4,7 +4,8 @@ import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import chalk from "chalk";
 
-const DEFAULT_ENDPOINT = "http://localhost:3001/api/agent";
+const DEFAULT_ENDPOINT =
+  process.env.AGENTURA_DEFAULT_AGENT_ENDPOINT?.trim() || "http://localhost:3001/api/agent";
 const DEFAULT_TIMEOUT_MS = 10000;
 
 function parseTimeoutMs(value: string): number {

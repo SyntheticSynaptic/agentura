@@ -63,6 +63,20 @@ interface PushPayload {
   after?: unknown;
 }
 
+function getAppBaseUrl(): string {
+  const nextAuthUrl = process.env.NEXTAUTH_URL?.trim();
+  if (nextAuthUrl) {
+    return nextAuthUrl.replace(/\/$/, "");
+  }
+
+  const publicAppUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (publicAppUrl) {
+    return publicAppUrl.replace(/\/$/, "");
+  }
+
+  return "http://localhost:3000";
+}
+
 function toInt(value: unknown): number | null {
   if (typeof value === "number" && Number.isInteger(value)) {
     return value;
@@ -258,6 +272,7 @@ async function handlePullRequestEvent(payload: PullRequestPayload) {
   const branch = toStringValue(payload.pull_request?.head?.ref);
   const commitSha = toStringValue(payload.pull_request?.head?.sha);
   const prNumber = toInt(payload.pull_request?.number);
+  const appBaseUrl = getAppBaseUrl();
 
   if (!githubInstallId || !owner || !repo || !branch || !commitSha || !prNumber) {
     return NextResponse.json({ status: "ok" });
@@ -283,6 +298,7 @@ async function handlePullRequestEvent(payload: PullRequestPayload) {
     return NextResponse.json({
       status: "ok",
       message: "No agentura.yaml — skipping eval run",
+      dashboardUrl: `${appBaseUrl}/dashboard`,
     });
   }
 

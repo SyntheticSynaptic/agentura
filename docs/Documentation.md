@@ -9,8 +9,8 @@
 
 **Active milestone:** 13 — Production Deployment
 **Progress:** 12 / 19 milestones complete
-**Last updated:** Roadmap revised to include Milestones 13–19 with customer persona
-**Next action:** Begin Milestone 13 production deployment (Vercel + Railway + GitHub App webhook URL)
+**Last updated:** Milestone 13 deployment configuration committed (code/config prep complete)
+**Next action:** Execute browser-side deployment steps (Vercel, Railway, GitHub App + OAuth URL updates, smoke test)
 
 ---
 
@@ -866,3 +866,33 @@ Milestone 10 — implement baseline run lookup, regression detection, and baseli
 
 **Next session:**
 Milestone 13 — execute production deployment checklist (Vercel + Railway + webhook cutover + smoke test)
+
+## Session — 2026-03-05 09:05 UTC
+
+**Milestone:** 13 — Production Deployment
+**Status:** IN PROGRESS
+
+**Files created:**
+- `Dockerfile` — monorepo-root container build for Railway worker deployment
+- `railway.json` — Railway Dockerfile builder/deploy configuration for worker service
+- `apps/web/vercel.json` — Vercel project build/install config for Next.js app in monorepo
+- `apps/web/.env.example` — production-ready web environment variable template
+- `apps/worker/.env.example` — production-ready worker environment variable template
+
+**Files modified:**
+- `apps/worker/package.json` — added production `start` script and aligned `build` script for dist output
+- `apps/web/src/app/api/webhooks/github/route.ts` — added environment-driven app base URL resolution (`NEXTAUTH_URL`/`NEXT_PUBLIC_APP_URL`) for production-safe webhook responses
+- `packages/cli/src/commands/init.ts` — made local default agent endpoint configurable via `AGENTURA_DEFAULT_AGENT_ENDPOINT` env var
+
+**Decisions made:**
+- Kept localhost values only as explicit fallbacks after environment variables to preserve local development defaults while removing hardcoded production assumptions.
+
+**Validation results:**
+- `pnpm run type-check`: PASS
+- `pnpm run build`: PASS (web build completed successfully; DNS warnings appeared for unreachable local Upstash hostname in this environment, but build exited 0)
+
+**Issues found:**
+- None blocking
+
+**Next session:**
+Milestone 13 — execute browser dashboard deployment steps (Vercel + Railway + GitHub App/OAuth URL updates) and run production smoke test
