@@ -9,8 +9,8 @@
 
 **Active milestone:** 14 — API Key Management
 **Progress:** 13 / 19 milestones complete
-**Last updated:** Milestone 13 completed with production smoke test passing
-**Next action:** Begin Milestone 14 implementation for dashboard API key management + CLI auth middleware integration
+**Last updated:** Milestone 14 implementation started (schema, migration, tRPC router, and dashboard UI scaffold complete)
+**Next action:** Run production/manual API key UX checks (create, one-time reveal, revoke) and validate CLI login flow with generated key
 
 ---
 
@@ -60,7 +60,7 @@ cd packages/cli && npx tsx src/index.ts run
 | 11 | Web dashboard: project + run views | ✅ Complete | `/dashboard`, project detail, and run detail pages validated end-to-end with expandable suite case rows and compact sparkline trend |
 | 12 | CLI: login + sync | ✅ Complete | `agentura login`, `agentura init`, and `agentura run` implemented with local config storage, YAML/dataset loading, colored output, and validated exit-code behavior |
 | 13 | Production Deployment | ✅ Complete | Production live: web on Vercel (`https://agentura-ci.vercel.app`), worker on Railway, OAuth working, and production PR checks/comments verified |
-| 14 | API Key Management | 📋 Planned | Add API key model and dashboard settings so CLI login works end-to-end |
+| 14 | API Key Management | 🚧 In progress | ApiKey schema + migration created, apiKeys tRPC router wired, and `/dashboard/settings/api-keys` page implemented |
 | 15 | Landing Page + Waitlist + Pricing | 📋 Planned | Replace `/` with conversion-focused marketing page, pricing, waitlist, and GitHub App CTA |
 | 16 | CLI Auth Flow | 📋 Planned | Build `/cli-auth` page and complete browser-to-terminal API key login handoff |
 | 17 | SDK Package | 📋 Planned | Publish optional `@agentura/sdk` middleware for richer telemetry reporting |
@@ -263,6 +263,38 @@ Milestone 11 — implement CLI `init` + `run` flow and validate local eval execu
 
 **Next session:**
 Milestone 12 — implement CLI login + sync flow with authenticated local-to-cloud run synchronization.
+
+## Session — 2026-03-06 00:05 UTC
+
+**Milestone:** 14 — API Key Management
+**Status:** IN PROGRESS
+
+**Files created:**
+- `packages/db/prisma/migrations/20260305235151_add_api_keys/migration.sql` — migration for new `ApiKey` table with unique `keyHash` and cascading `userId` foreign key
+- `apps/web/src/lib/api-keys.ts` — API key generation + SHA-256 hashing helper
+- `apps/web/src/server/routers/apiKeys.ts` — `apiKeys.list`, `apiKeys.create`, and `apiKeys.revoke` protected procedures
+- `apps/web/src/app/dashboard/settings/api-keys/page.tsx` — client-side API keys management page
+- `apps/web/src/components/dashboard/ApiKeyRow.tsx` — reusable table row component for key display/revoke actions
+
+**Files modified:**
+- `packages/db/prisma/schema.prisma` — added `ApiKey` model and `User.apiKeys` relation
+- `apps/web/src/server/routers/_app.ts` — wired `apiKeys` router into app router
+- `apps/web/src/app/dashboard/page.tsx` — added link to `/dashboard/settings/api-keys`
+- `docs/Documentation.md` — updated current status/milestone row and appended this session entry
+
+**Decisions made:**
+- Kept existing `User.apiKey` field unchanged for compatibility while introducing the new normalized `ApiKey` model for multi-key management and revocation workflow.
+
+**Validation results:**
+- `cd packages/db && pnpm prisma migrate dev --name add_api_keys`: PASS
+- `pnpm run type-check`: PASS
+- `pnpm run build`: PASS (non-blocking local DNS warnings for unavailable Upstash hostname still appear in this environment)
+
+**Issues found:**
+- None blocking
+
+**Next session:**
+Milestone 14 — run manual production checks for key creation one-time reveal, revoke flow, and CLI login using generated key
 
 ---
 

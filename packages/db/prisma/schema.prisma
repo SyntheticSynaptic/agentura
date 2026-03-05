@@ -19,6 +19,7 @@ model User {
   createdAt     DateTime       @default(now())
   installations Installation[]
   projects      Project[]
+  apiKeys       ApiKey[]
 }
 
 model Installation {
@@ -122,4 +123,16 @@ model EmbeddingCache {
   model     String
   embedding Float[]           // stored as array
   createdAt DateTime @default(now())
+}
+
+model ApiKey {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String
+  keyHash    String   @unique
+  keyPrefix  String
+  createdAt  DateTime @default(now())
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
 }
