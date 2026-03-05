@@ -9,7 +9,17 @@ interface GetContentResponse {
 }
 
 export interface InstallationOctokitLike {
-  request(
+  rest?: {
+    repos?: {
+      getContent?(params: {
+        owner: string;
+        repo: string;
+        path: string;
+        ref: string;
+      }): Promise<GetContentResponse>;
+    };
+  };
+  request?: (
     route: "GET /repos/{owner}/{repo}/contents/{path}",
     params: {
       owner: string;
@@ -17,7 +27,7 @@ export interface InstallationOctokitLike {
       path: string;
       ref: string;
     }
-  ): Promise<GetContentResponse>;
+  ) => Promise<GetContentResponse>;
 }
 
 interface ContentFile {
@@ -60,17 +70,34 @@ const agentConfigSchema = z
     }
   });
 
-const evalSuiteSchema = z.object({
+const evalSuiteBaseSchema = z.object({
   name: z.string().min(1),
-  type: z.enum(["golden_dataset", "llm_judge", "performance"]),
   dataset: z.string().min(1),
-  scorer: z.enum(["exact_match", "semantic_similarity", "contains"]).optional(),
-  rubric: z.string().min(1).optional(),
-  judge_model: z.string().min(1).optional(),
   threshold: z.number().min(0).max(1),
+});
+
+const goldenDatasetSuiteSchema = evalSuiteBaseSchema.extend({
+  type: z.literal("golden_dataset"),
+  scorer: z.enum(["exact_match", "semantic_similarity", "contains"]).optional(),
+});
+
+const llmJudgeSuiteSchema = evalSuiteBaseSchema.extend({
+  type: z.literal("llm_judge"),
+  rubric: z.string().min(1),
+  judge_model: z.string().min(1).optional(),
+});
+
+const performanceSuiteSchema = evalSuiteBaseSchema.extend({
+  type: z.literal("performance"),
   max_p95_ms: z.number().int().positive().optional(),
   max_cost_per_call_usd: z.number().positive().optional(),
 });
+
+const evalSuiteSchema = z.discriminatedUnion("type", [
+  goldenDatasetSuiteSchema,
+  llmJudgeSuiteSchema,
+  performanceSuiteSchema,
+]);
 
 const ciSchema = z.object({
   block_on_regression: z.boolean(),
@@ -126,12 +153,26 @@ async function fetchRepoFileText(
   branch: string,
   filePath: string
 ): Promise<string> {
-  const response = await octokit.request("GET /repos/{owner}/{repo}/contents/{path}", {
-    owner,
-    repo,
-    path: filePath,
-    ref: branch,
-  });
+  const getContent = octokit.rest?.repos?.getContent;
+  const response = getContent
+    ? await getContent({
+        owner,
+        repo,
+        path: filePath,
+        ref: branch,
+      })
+    : octokit.request
+      ? await octokit.request("GET /repos/{owner}/{repo}/contents/{path}", {
+          owner,
+          repo,
+          path: filePath,
+          ref: branch,
+        })
+      : null;
+
+  if (!response) {
+    throw new Error("Installation octokit is missing repos.getContent support");
+  }
 
   if (!isContentFile(response.data)) {
     throw new Error(`Expected a file at ${filePath}, but received a directory payload`);
@@ -244,4 +285,22 @@ export async function fetchDatasetFile(
   }
 
   return cases;
+}
+
+export async function fetchRubricFile(
+  octokit: InstallationOctokitLike,
+  owner: string,
+  repo: string,
+  branch: string,
+  filePath: string
+): Promise<string> {
+  try {
+    return await fetchRepoFileText(octokit, owner, repo, branch, filePath);
+  } catch (error) {
+    if (readStatus(error) === 404) {
+      throw new Error(`Rubric file not found: ${filePath}`);
+    }
+
+    throw error;
+  }
 }

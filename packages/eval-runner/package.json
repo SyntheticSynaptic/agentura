@@ -11,7 +11,8 @@
   },
   "dependencies": {
     "@agentura/types": "workspace:*",
-    "groq-sdk": "^0.37.0"
+    "groq-sdk": "^0.37.0",
+    "p-limit": "^7.3.0"
   },
   "devDependencies": {
     "typescript": "^5.7.3"

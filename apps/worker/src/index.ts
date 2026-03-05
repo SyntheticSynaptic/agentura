@@ -10,7 +10,6 @@ const REQUIRED_ENV_VARS = [
   "UPSTASH_REDIS_URL",
   "GITHUB_APP_ID",
   "GITHUB_APP_PRIVATE_KEY",
-  "GROQ_API_KEY",
   "OPENAI_API_KEY",
 ] as const;
 
@@ -52,9 +51,21 @@ function assertRequiredEnvVars(): void {
   }
 }
 
+function warnIfGroqApiKeyMissing(): void {
+  const raw = process.env.GROQ_API_KEY;
+  const normalized = raw?.trim().toLowerCase() ?? "";
+
+  if (!normalized || normalized === "placeholder") {
+    console.warn(
+      "[worker] GROQ_API_KEY is not configured. llm_judge suites will be skipped."
+    );
+  }
+}
+
 async function startWorker(): Promise<void> {
   loadEnvFileIfPresent();
   assertRequiredEnvVars();
+  warnIfGroqApiKeyMissing();
 
   const redisUrl = process.env.UPSTASH_REDIS_URL;
   if (!redisUrl) {

@@ -1,5 +1,10 @@
 import { prisma } from "@agentura/db";
-import { callCliAgent, callHttpAgent, runGoldenDataset } from "@agentura/eval-runner";
+import {
+  callCliAgent,
+  callHttpAgent,
+  runGoldenDataset,
+  runLlmJudge,
+} from "@agentura/eval-runner";
 import type {
   AgentConfig,
   AgentFunction,
@@ -20,6 +25,7 @@ import {
 import {
   fetchDatasetFile,
   fetchRepoConfig,
+  fetchRubricFile,
   type InstallationOctokitLike,
 } from "../github/fetch-config";
 import { getInstallationOctokit } from "../lib/github-app";
@@ -46,6 +52,10 @@ function hasUsableGroqApiKey(): boolean {
 
   const normalized = value.trim().toLowerCase();
   return normalized.length > 0 && normalized !== "placeholder";
+}
+
+function getGroqApiKey(): string | null {
+  return hasUsableGroqApiKey() ? process.env.GROQ_API_KEY ?? null : null;
 }
 
 function normalizeRepoPath(path: string): string {
@@ -278,28 +288,54 @@ export async function handleEvalRunJob(job: Job<EvalRunJobPayload>): Promise<voi
 
     const agentFn = createAgentFunction(config.agent);
     const suiteResults: SuiteRunResult[] = [];
-    const groqEnabled = hasUsableGroqApiKey();
+    const groqApiKey = getGroqApiKey();
 
-    for (const suite of config.evals) {
-      if (suite.type === "llm_judge") {
-        if (!groqEnabled) {
-          console.log(`skipping ${suite.name}: GROQ_API_KEY missing or placeholder`);
-          continue;
-        }
+    const goldenSuites = config.evals.filter((suite) => suite.type === "golden_dataset");
+    const llmJudgeSuites = config.evals.filter((suite) => suite.type === "llm_judge");
+    const unsupportedSuites = config.evals.filter(
+      (suite) => suite.type !== "golden_dataset" && suite.type !== "llm_judge"
+    );
 
-        console.log(`skipping ${suite.name}: strategy not yet implemented`);
-        continue;
-      }
-
-      if (suite.type !== "golden_dataset") {
-        console.log(`skipping ${suite.name}: strategy not yet implemented`);
-        continue;
-      }
-
+    for (const suite of goldenSuites) {
       const datasetPath = normalizeRepoPath(suite.dataset);
       const cases = await fetchDatasetFile(octokit, owner, repo, branch, datasetPath);
       const suiteResult = await runGoldenSuiteConcurrent(suite, cases, agentFn);
       suiteResults.push(suiteResult);
+    }
+
+    for (const suite of llmJudgeSuites) {
+      if (!groqApiKey) {
+        console.log(`Skipping llm_judge suite ${suite.name}: GROQ_API_KEY not configured`);
+        continue;
+      }
+
+      if (!suite.rubric) {
+        console.log(`Skipping llm_judge suite ${suite.name}: rubric path missing`);
+        continue;
+      }
+
+      console.log(`Running llm_judge suite: ${suite.name}`);
+      const rubricPath = normalizeRepoPath(suite.rubric);
+      const datasetPath = normalizeRepoPath(suite.dataset);
+
+      const rubric = await fetchRubricFile(octokit, owner, repo, branch, rubricPath);
+      const cases = await fetchDatasetFile(octokit, owner, repo, branch, datasetPath);
+      const suiteResult = await runLlmJudge(
+        {
+          suiteName: suite.name,
+          threshold: suite.threshold,
+          agentFn,
+        },
+        cases,
+        rubric,
+        groqApiKey
+      );
+
+      suiteResults.push(suiteResult);
+    }
+
+    for (const suite of unsupportedSuites) {
+      console.log(`skipping ${suite.name}: strategy not yet implemented`);
     }
 
     if (suiteResults.length === 0) {

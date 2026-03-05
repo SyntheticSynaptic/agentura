@@ -9,8 +9,8 @@
 
 **Active milestone:** 7 — Eval worker: LLM judge
 **Progress:** 6 / 17 milestones complete
-**Last updated:** Milestone 6 completed with manual end-to-end validation passing
-**Next action:** Implement Milestone 7 LLM judge strategy with deterministic scoring and retry/backoff handling
+**Last updated:** Milestone 7 LLM judge core implementation completed (awaiting manual E2E validation)
+**Next action:** Run Milestone 7 manual E2E with a real `GROQ_API_KEY` and verify SuiteResult/CaseResult judge output persistence
 
 ---
 
@@ -39,7 +39,7 @@ cd packages/cli && npx tsx src/index.ts run
 **Required environment setup:**
 1. Copy `.env.example` to `apps/web/.env.local`
 2. Copy `.env.example` to `apps/worker/.env`
-3. Fill in values from: Supabase dashboard, GitHub App settings, Anthropic console, OpenAI dashboard, Upstash console, Resend dashboard
+3. Fill in values from: Supabase dashboard, GitHub App settings, Groq console, OpenAI dashboard, Upstash console, Resend dashboard
 
 ---
 
@@ -53,7 +53,7 @@ cd packages/cli && npx tsx src/index.ts run
 | 4 | Next.js base + tRPC + GitHub OAuth | ✅ Complete | OAuth login/callback, protected routes, users.me, and health endpoint validated |
 | 5 | GitHub App: install + webhook | ✅ Complete | Webhook signature verification, installation/project sync, and eval-run enqueue validated end-to-end |
 | 6 | Eval worker: golden dataset | ✅ Complete | Worker processes eval-run jobs end-to-end for golden_dataset, persists results, and updates GitHub Check Runs |
-| 7 | Eval worker: LLM judge | ⬜ Not started | — |
+| 7 | Eval worker: LLM judge | 🟡 In progress | Groq-backed llm_judge scorer/strategy implemented with worker integration and tests passing; awaiting manual E2E confirmation |
 | 8 | Eval worker: performance + embeddings | ⬜ Not started | — |
 | 9 | PR comment + Check Run | ⬜ Not started | — |
 | 10 | Baseline comparison + regression | ⬜ Not started | — |
@@ -584,3 +584,38 @@ Milestone 6 — run manual end-to-end eval worker test and verify: completed `Ev
 
 **Next session:**
 Milestone 7 — implement LLM judge strategy in worker with `temperature: 0`, structured JSON parsing, and retry/backoff behavior
+
+## Session — 2026-03-05 00:00 UTC
+
+**Milestone:** 7 — Eval worker: LLM judge
+**Status:** IN PROGRESS
+
+**Files created:**
+- `packages/eval-runner/src/scorers/llm-judge-scorer.ts` — Groq-backed `scoreLlmJudge()` scorer with JSON parsing, code-fence stripping, score clamping, and non-throw fallback behavior
+- `packages/eval-runner/src/scorers/llm-judge-scorer.test.ts` — scorer unit tests for success path, parse fallback, and upper/lower score clamping
+
+**Files modified:**
+- `packages/eval-runner/src/strategies/llm-judge.ts` — implemented concurrent (`p-limit(5)`) llm_judge suite runner using Groq scorer and per-case latency tracking
+- `packages/eval-runner/src/index.ts` — exports updated for new llm_judge scorer/strategy surface
+- `apps/worker/src/github/fetch-config.ts` — added `fetchRubricFile()` and stricter `llm_judge` config validation requiring `rubric`
+- `apps/worker/src/queue-handlers/eval-run.ts` — added llm_judge suite execution flow (rubric fetch + dataset fetch + `runLlmJudge`) and GROQ-not-configured graceful skip path
+- `apps/worker/src/index.ts` — made `GROQ_API_KEY` optional at startup with warning instead of hard-fail
+- `.env.example` — Groq env var maintained as LLM judge key (`GROQ_API_KEY`)
+- `packages/eval-runner/package.json` — added `groq-sdk` and `p-limit`
+- `apps/worker/package.json` — added `groq-sdk`
+- `pnpm-lock.yaml` — lockfile updates for approved dependency changes
+
+**Decisions made:**
+- Switched LLM judge integration to Groq (`llama-3.1-8b-instant`, `temperature: 0`) and enforced fail-soft behavior: judge failures/parsing issues return `{ score: 0, reason: "Judge response parse error" }` instead of throwing.
+- Kept llm_judge cost tracking at `estimatedCostUsd = 0` for milestone scope and free-tier assumption.
+
+**Validation results:**
+- `pnpm --filter @agentura/eval-runner run build`: PASS
+- `pnpm run type-check`: PASS
+- `pnpm --filter @agentura/eval-runner run test`: PASS (10 tests, including new llm_judge scorer tests)
+
+**Issues found:**
+- Root `pnpm run type-check` required refreshing eval-runner declaration output once (`pnpm --filter @agentura/eval-runner run build`) because worker consumes eval-runner types from emitted package declarations.
+
+**Next session:**
+Milestone 7 — run manual end-to-end llm_judge validation with a real `GROQ_API_KEY`, then mark milestone complete after confirming SuiteResult + CaseResult `judgeReason` persistence in Supabase and check run visibility on PR

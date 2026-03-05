@@ -4,7 +4,7 @@ export { callSdkAgent } from "./agent-caller/sdk";
 
 export { scoreContains } from "./scorers/contains";
 export { scoreExactMatch } from "./scorers/exact-match";
-export { createGroqJudgeFunction } from "./scorers/llm-judge-scorer";
+export { scoreLlmJudge } from "./scorers/llm-judge-scorer";
 export { cosineSimilarity, scoreSemanticSimilarity } from "./scorers/semantic-similarity";
 
 export { runGoldenDataset } from "./strategies/golden-dataset";
@@ -21,5 +21,5 @@ export type {
   GoldenDatasetOptions,
   GoldenDatasetScorer,
 } from "./strategies/golden-dataset";
-export type { JudgeFunction, JudgeResponse, LlmJudgeOptions } from "./strategies/llm-judge";
+export type { LlmJudgeRunConfig } from "./strategies/llm-judge";
 export type { PerformanceOptions } from "./strategies/performance";

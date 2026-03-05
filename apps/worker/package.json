@@ -21,6 +21,7 @@
     "@agentura/types": "workspace:^",
     "@octokit/app": "^16.1.2",
     "bullmq": "^5.70.1",
+    "groq-sdk": "^0.37.0",
     "ioredis": "^5.9.3",
     "js-yaml": "^4.1.1",
     "p-limit": "^7.3.0",

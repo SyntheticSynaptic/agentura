@@ -1,101 +1,86 @@
 import { performance } from "node:perf_hooks";
+import pLimit from "p-limit";
 
 import type { AgentFunction, EvalCase, EvalCaseResult, SuiteRunResult } from "@agentura/types";
+import { scoreLlmJudge } from "../scorers/llm-judge-scorer";
 
-export interface JudgeResponse {
-  score: number;
-  reason: string;
+export interface LlmJudgeRunConfig {
+  suiteName: string;
+  threshold: number;
+  agentFn: AgentFunction;
 }
 
-export type JudgeFunction = (params: {
-  input: string;
-  output: string;
-  rubric: string;
-  judgeModel: string;
-}) => Promise<JudgeResponse>;
-
-export interface LlmJudgeOptions {
-  suiteName?: string;
-  threshold?: number;
-  rubric: string;
-  judgeModel: string;
-}
-
-function clampScore(score: number): number {
-  if (!Number.isFinite(score)) {
-    return 0;
-  }
-  return Math.max(0, Math.min(1, score));
-}
+const CASE_CONCURRENCY = 5;
 
 export async function runLlmJudge(
+  config: LlmJudgeRunConfig,
   cases: EvalCase[],
-  agentFn: AgentFunction,
-  judgeFn: JudgeFunction,
-  options: LlmJudgeOptions
+  rubric: string,
+  apiKey: string
 ): Promise<SuiteRunResult> {
   const startedAt = performance.now();
-  const threshold = options.threshold ?? 0;
-  const suiteName = options.suiteName ?? "llm_judge";
+  const limit = pLimit(CASE_CONCURRENCY);
 
-  const caseResults: EvalCaseResult[] = [];
+  const caseResults = await Promise.all(
+    cases.map((testCase, index) =>
+      limit(async (): Promise<EvalCaseResult> => {
+        const caseStartedAt = performance.now();
 
-  for (let i = 0; i < cases.length; i += 1) {
-    const current = cases[i];
+        try {
+          const agentResult = await config.agentFn(testCase.input);
+          const judge = await scoreLlmJudge(
+            testCase.input,
+            agentResult.output,
+            rubric,
+            apiKey
+          );
 
-    try {
-      const agentResult = await agentFn(current.input);
-      const judge = await judgeFn({
-        input: current.input,
-        output: agentResult.output,
-        rubric: options.rubric,
-        judgeModel: options.judgeModel,
-      });
+          return {
+            caseIndex: index,
+            input: testCase.input,
+            output: agentResult.output,
+            expected: testCase.expected,
+            score: judge.score,
+            passed: judge.score >= config.threshold,
+            judgeReason: judge.reason,
+            latencyMs: Math.max(0, Math.round(performance.now() - caseStartedAt)),
+            inputTokens: agentResult.inputTokens,
+            outputTokens: agentResult.outputTokens,
+          };
+        } catch (error) {
+          return {
+            caseIndex: index,
+            input: testCase.input,
+            output: null,
+            expected: testCase.expected,
+            score: 0,
+            passed: false,
+            latencyMs: Math.max(0, Math.round(performance.now() - caseStartedAt)),
+            errorMessage: error instanceof Error ? error.message : "Unknown LLM judge error",
+          };
+        }
+      })
+    )
+  );
 
-      const score = clampScore(judge.score);
-      caseResults.push({
-        caseIndex: i,
-        input: current.input,
-        output: agentResult.output,
-        expected: current.expected,
-        score,
-        passed: score >= threshold,
-        judgeReason: judge.reason,
-        latencyMs: agentResult.latencyMs,
-        inputTokens: agentResult.inputTokens,
-        outputTokens: agentResult.outputTokens,
-      });
-    } catch (error) {
-      caseResults.push({
-        caseIndex: i,
-        input: current.input,
-        output: null,
-        expected: current.expected,
-        score: 0,
-        passed: false,
-        latencyMs: 0,
-        errorMessage: error instanceof Error ? error.message : "Unknown LLM judge error",
-      });
-    }
-  }
-
-  const totalCases = caseResults.length;
-  const passedCases = caseResults.filter((result) => result.passed).length;
+  const orderedResults = caseResults.sort((left, right) => left.caseIndex - right.caseIndex);
+  const totalCases = orderedResults.length;
+  const passedCases = orderedResults.filter((result) => result.passed).length;
   const score =
     totalCases === 0
       ? 0
-      : caseResults.reduce((total, result) => total + result.score, 0) / totalCases;
+      : orderedResults.reduce((total, result) => total + result.score, 0) / totalCases;
 
   return {
-    suiteName,
+    suiteName: config.suiteName,
     strategy: "llm_judge",
     score,
-    threshold,
-    passed: score >= threshold,
+    threshold: config.threshold,
+    passed: score >= config.threshold,
     totalCases,
     passedCases,
     durationMs: Math.max(0, Math.round(performance.now() - startedAt)),
     estimatedCostUsd: 0,
-    cases: caseResults,
+    cases: orderedResults,
   };
 }
