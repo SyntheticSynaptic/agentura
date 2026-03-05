@@ -402,23 +402,12 @@ export async function handleEvalRunJob(job: Job<EvalRunJobPayload>): Promise<voi
       console.warn(`[worker] no runnable eval suites found for ${owner}/${repo}`);
     }
 
-    console.log("[debug] prNumber:", prNumber);
-    console.log("[debug] project.id:", project.id);
-
     const regressionThreshold = config.ci.regression_threshold ?? 0.05;
     let baselineResult: BaselineResult | null = null;
     let comparisonResult: ComparisonResult | null = null;
 
     if (prNumber !== null) {
       baselineResult = await getBaseline(project.id);
-      console.log("[debug] baseline found:", baselineResult ? "yes" : "no");
-      if (baselineResult) {
-        console.log("[debug] baseline evalRun id:", baselineResult.evalRun.id);
-        console.log(
-          "[debug] baseline suites:",
-          baselineResult.suiteResults.map((suite) => suite.suiteName)
-        );
-      }
       if (baselineResult) {
         comparisonResult = compareToBaseline(
           suiteResults.map((suite) => ({
@@ -428,7 +417,6 @@ export async function handleEvalRunJob(job: Job<EvalRunJobPayload>): Promise<voi
           baselineResult,
           regressionThreshold
         );
-        console.log("[debug] comparison result:", JSON.stringify(comparisonResult));
       }
     }
 

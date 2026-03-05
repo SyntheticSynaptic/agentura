@@ -37,8 +37,6 @@ export interface ComparisonResult {
 }
 
 export async function getBaseline(projectId: string): Promise<BaselineResult | null> {
-  console.log("[debug] getBaseline querying for projectId:", projectId);
-
   const result = await prisma.evalRun.findFirst({
     where: {
       projectId,
@@ -57,8 +55,6 @@ export async function getBaseline(projectId: string): Promise<BaselineResult | n
       },
     },
   });
-
-  console.log("[debug] getBaseline result:", result ? result.id : "null");
 
   if (!result) {
     return null;

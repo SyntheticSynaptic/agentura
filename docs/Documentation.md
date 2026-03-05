@@ -7,10 +7,10 @@
 
 ## Current Status
 
-**Active milestone:** 10 — Baseline comparison + regression
-**Progress:** 9 / 17 milestones complete
-**Last updated:** Milestone 9 completed with manual end-to-end validation passing
-**Next action:** Implement baseline lookup and regression detection in worker + PR comment/check run output
+**Active milestone:** 11 — CLI: init + run
+**Progress:** 10 / 17 milestones complete
+**Last updated:** Milestone 10 completed with manual end-to-end validation passing
+**Next action:** Begin Milestone 11 implementation for CLI init and local eval execution flow
 
 ---
 
@@ -56,7 +56,7 @@ cd packages/cli && npx tsx src/index.ts run
 | 7 | Eval worker: LLM judge | ✅ Complete | Groq-backed llm_judge suite execution works end-to-end with persisted judge reasoning and PR check updates |
 | 8 | Eval worker: performance + embeddings | ✅ Complete | Performance suites run end-to-end with latency percentile metadata persisted to SuiteResult and GitHub Check Run updates |
 | 9 | PR comment + Check Run | ✅ Complete | Worker posts/upserts PR comment via marker and updates same comment on subsequent pushes |
-| 10 | Baseline comparison + regression | ⬜ Not started | — |
+| 10 | Baseline comparison + regression | ✅ Complete | Baseline comparison runs on PR evals, regressions/improvements are surfaced in PR comments, and check run conclusion honors `block_on_regression` |
 | 11 | CLI: init + run | ⬜ Not started | — |
 | 12 | CLI: login + sync | ⬜ Not started | — |
 | 13 | Dashboard: project list + run history | ⬜ Not started | — |
@@ -196,6 +196,38 @@ curl https://app.agentura.dev/api/v1/health
 
 **Next session:**
 Milestone 1 — resolve the Next.js config filename conflict (approve `next.config.mjs`/`.js` or a stack adjustment), restore real `next build`, then rerun `pnpm run dev` and verify `localhost:3000`.
+
+---
+
+## Session — 2026-03-05 04:40 UTC
+
+**Milestone:** 10 — Baseline comparison + regression detection
+**Status:** COMPLETE
+
+**Files created:**
+- None
+
+**Files modified:**
+- `apps/worker/src/queue-handlers/eval-run.ts` — removed temporary Milestone 10 debug `console.log` lines after baseline comparison verification passed
+- `apps/worker/src/baseline/compare.ts` — removed temporary Milestone 10 debug `console.log` lines from `getBaseline`
+- `docs/Documentation.md` — updated current status, milestone table, and appended this session handoff
+
+**Decisions made:**
+- Kept only functional logging and removed temporary debugging logs now that baseline/regression behavior is verified end-to-end.
+
+**Validation results:**
+- `pnpm run type-check`: PASS
+- Manual E2E validation for Milestone 10: PASS
+  - Baseline comparison runs on every PR
+  - No regression shown when scores match baseline
+  - Regression table appears when scores drop
+  - Overall status shows failed when regressions are detected
+
+**Issues found:**
+- None
+
+**Next session:**
+Milestone 11 — implement CLI `init` + `run` flow and validate local eval execution UX end-to-end.
 
 ---
 
