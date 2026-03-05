@@ -37,7 +37,9 @@ export interface ComparisonResult {
 }
 
 export async function getBaseline(projectId: string): Promise<BaselineResult | null> {
-  const baselineEvalRun = await prisma.evalRun.findFirst({
+  console.log("[debug] getBaseline querying for projectId:", projectId);
+
+  const result = await prisma.evalRun.findFirst({
     where: {
       projectId,
       status: "completed",
@@ -56,16 +58,18 @@ export async function getBaseline(projectId: string): Promise<BaselineResult | n
     },
   });
 
-  if (!baselineEvalRun) {
+  console.log("[debug] getBaseline result:", result ? result.id : "null");
+
+  if (!result) {
     return null;
   }
 
   return {
     evalRun: {
-      id: baselineEvalRun.id,
-      completedAt: baselineEvalRun.completedAt,
+      id: result.id,
+      completedAt: result.completedAt,
     },
-    suiteResults: baselineEvalRun.suiteResults,
+    suiteResults: result.suiteResults,
   };
 }
 
