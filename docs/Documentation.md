@@ -7,10 +7,10 @@
 
 ## Current Status
 
-**Active milestone:** 13 — Dashboard: project list + run history
-**Progress:** 12 / 17 milestones complete
-**Last updated:** Milestone 12 completed with manual end-to-end validation passing
-**Next action:** Begin Milestone 13 polish/completion tasks and close remaining MVP dashboard gaps
+**Active milestone:** 13 — Production Deployment
+**Progress:** 12 / 19 milestones complete
+**Last updated:** Roadmap revised to include Milestones 13–19 with customer persona
+**Next action:** Begin Milestone 13 production deployment (Vercel + Railway + GitHub App webhook URL)
 
 ---
 
@@ -59,11 +59,13 @@ cd packages/cli && npx tsx src/index.ts run
 | 10 | Baseline comparison + regression | ✅ Complete | Baseline comparison runs on PR evals, regressions/improvements are surfaced in PR comments, and check run conclusion honors `block_on_regression` |
 | 11 | Web dashboard: project + run views | ✅ Complete | `/dashboard`, project detail, and run detail pages validated end-to-end with expandable suite case rows and compact sparkline trend |
 | 12 | CLI: login + sync | ✅ Complete | `agentura login`, `agentura init`, and `agentura run` implemented with local config storage, YAML/dataset loading, colored output, and validated exit-code behavior |
-| 13 | Dashboard: project list + run history | ⬜ Not started | — |
-| 14 | Dashboard: trend chart + run detail | ⬜ Not started | — |
-| 15 | Email notifications | ⬜ Not started | — |
-| 16 | SDK package | ⬜ Not started | — |
-| 17 | Production deployment | ⬜ Not started | Requires human to set up Vercel + Railway projects |
+| 13 | Production Deployment | 📋 Planned | Deploy web to Vercel and worker to Railway, set env vars, update GitHub App webhook URL, run full smoke test |
+| 14 | API Key Management | 📋 Planned | Add API key model and dashboard settings so CLI login works end-to-end |
+| 15 | Landing Page + Waitlist + Pricing | 📋 Planned | Replace `/` with conversion-focused marketing page, pricing, waitlist, and GitHub App CTA |
+| 16 | CLI Auth Flow | 📋 Planned | Build `/cli-auth` page and complete browser-to-terminal API key login handoff |
+| 17 | SDK Package | 📋 Planned | Publish optional `@agentura/sdk` middleware for richer telemetry reporting |
+| 18 | Documentation + Onboarding | 📋 Planned | Build self-serve docs, strategy guides, troubleshooting, and contributor onboarding |
+| 19 | Dashboard Polish + Settings | 📋 Planned | Improve settings UX, pagination, mobile responsiveness, and health/status page |
 
 ---
 
@@ -76,10 +78,10 @@ Some milestones require human actions outside the codebase. Track them here:
 | 5 | Register GitHub App at github.com/settings/apps/new. Required permissions documented in Plan.md M5. Set Webhook URL to ngrok/smee URL in dev, Vercel URL in prod. | ✅ Complete (dev setup) |
 | 5 | Set `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_WEBHOOK_SECRET`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` in `.env` | ✅ Complete (local) |
 | 5 | Set up smee.io or ngrok for local webhook forwarding | ✅ Complete |
-| 17 | Create Vercel project, connect GitHub repo, set all env vars | ⬜ Pending |
-| 17 | Create Railway project for worker, set all env vars | ⬜ Pending |
-| 17 | Update GitHub App webhook URL to production Vercel domain | ⬜ Pending |
-| 17 | Verify Resend sending domain | ⬜ Pending |
+| 13 | Create Vercel project, connect GitHub repo, set all env vars | ⬜ Pending |
+| 13 | Create Railway project for worker, set all env vars | ⬜ Pending |
+| 13 | Update GitHub App webhook URL to production Vercel domain | ⬜ Pending |
+| 13 | Verify Resend sending domain | ⬜ Pending |
 
 ---
 
@@ -840,3 +842,27 @@ Milestone 9 — implement PR comment posting and finalize Check Run output forma
 
 **Next session:**
 Milestone 10 — implement baseline run lookup, regression detection, and baseline/delta rendering in PR comment + check run summary
+
+## Session — 2026-03-05 08:10 UTC
+
+**Milestone:** Roadmap revision
+**Status:** COMPLETE
+
+**Files created:**
+- None
+
+**Files modified:**
+- `docs/Plan.md` — revised milestone roadmap to 19 milestones; marked Milestones 1–12 as complete; replaced old Milestones 13–17 with new Milestones 13–19 exactly as specified; added target customer persona section
+- `docs/Documentation.md` — updated current status, milestone status table, and human-actions milestone references to match revised roadmap
+
+**Decisions made:**
+- Milestone numbering and planning source now align to a 19-milestone roadmap with post-MVP priorities (deployment, API key management, marketing, CLI auth, SDK, docs/onboarding, dashboard polish).
+
+**Validation results:**
+- Documentation update review: PASS (tables and milestone text aligned to revised roadmap request)
+
+**Issues found:**
+- None
+
+**Next session:**
+Milestone 13 — execute production deployment checklist (Vercel + Railway + webhook cutover + smoke test)

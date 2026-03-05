@@ -106,20 +106,22 @@ agentura/
 | 1 — Monorepo scaffold | ✅ Complete | 2026-02-26 |
 | 2 — Database schema | ✅ Complete | 2026-03-02 |
 | 3 — Shared types + eval-runner package | ✅ Complete | 2026-03-02 |
-| 4 — Next.js base + tRPC + GitHub OAuth | ⬜ Not started | — |
-| 5 — GitHub App — installation + webhook | ⬜ Not started | — |
-| 6 — Eval worker — golden dataset strategy | ⬜ Not started | — |
-| 7 — Eval worker — LLM judge strategy | ⬜ Not started | — |
-| 8 — Eval worker — performance strategy | ⬜ Not started | — |
-| 9 — PR comment + Check Run integration | ⬜ Not started | — |
-| 10 — Baseline comparison + regression detection | ⬜ Not started | — |
-| 11 — CLI — init + run commands | ⬜ Not started | — |
-| 12 — CLI — login + sync commands | ⬜ Not started | — |
-| 13 — Web dashboard — project + run views | ⬜ Not started | — |
-| 14 — Web dashboard — score trend chart + run detail | ⬜ Not started | — |
-| 15 — Email notifications | ⬜ Not started | — |
-| 16 — SDK package | ⬜ Not started | — |
-| 17 — Production deployment | ⬜ Not started | — |
+| 4 — Next.js base + tRPC + GitHub OAuth | ✅ Complete | 2026-03-05 |
+| 5 — GitHub App — installation + webhook | ✅ Complete | 2026-03-05 |
+| 6 — Eval worker — golden dataset strategy | ✅ Complete | 2026-03-05 |
+| 7 — Eval worker — LLM judge strategy | ✅ Complete | 2026-03-05 |
+| 8 — Eval worker — performance strategy | ✅ Complete | 2026-03-05 |
+| 9 — PR comment + Check Run integration | ✅ Complete | 2026-03-05 |
+| 10 — Baseline comparison + regression detection | ✅ Complete | 2026-03-05 |
+| 11 — Web dashboard | ✅ Complete | 2026-03-05 |
+| 12 — CLI: init + run + login commands | ✅ Complete | 2026-03-05 |
+| 13 — Production Deployment | 📋 Planned | — |
+| 14 — API Key Management | 📋 Planned | — |
+| 15 — Landing Page + Waitlist + Pricing | 📋 Planned | — |
+| 16 — CLI Auth Flow | 📋 Planned | — |
+| 17 — SDK Package | 📋 Planned | — |
+| 18 — Documentation + Onboarding | 📋 Planned | — |
+| 19 — Dashboard Polish + Settings | 📋 Planned | — |
 
 ---
 
@@ -832,201 +834,168 @@ pnpm run type-check
 
 ---
 
-### Milestone 13 — Web Dashboard: Project List + Run History
+MILESTONE 13: Production Deployment
+Goal: Get Agentura running on a real public URL so customers 
+can install and use it without requiring the developer's laptop.
 
-**Goal:** Dashboard shows projects and recent eval runs with pass/fail status.
+Services:
+- Web app (Next.js) → Vercel
+- Worker (BullMQ) → Railway  
+- Database → Supabase (already cloud-hosted, no change)
+- Redis → Upstash (already cloud-hosted, no change)
+- Domain → agentura.dev (or temporary Vercel subdomain for MVP)
 
-**Pages:**
-- `/dashboard` — list of projects (repos with app installed), each showing last run status
-- `/projects/[owner]/[repo]` — run history table: date, branch, PR #, overall status, suite scores
+Tasks:
+- Deploy apps/web to Vercel connected to GitHub repo
+- Configure all production env vars in Vercel dashboard
+- Deploy apps/worker to Railway connected to GitHub repo
+- Configure all production env vars in Railway dashboard
+- Set Railway start command: pnpm --filter @agentura/worker start
+- Update GitHub App webhook URL to point to production
+- Run end-to-end smoke test: install GitHub App on a real repo,
+  open a PR, confirm Check Run and PR comment appear
+- Configure watch paths in Railway so worker only redeploys 
+  when apps/worker or packages/* changes
 
-**tRPC procedures:**
-- `projects.list` — return user's projects with last run status
-- `projects.runs.list` — paginated run history for a project
-- `runs.getById` — full run with all suite and case results
-
-**Components:**
-- Project card: repo name, install status, last run badge (green/red/grey)
-- Run row: commit SHA (truncated), branch, PR link, timestamp, per-suite score badges, overall status
-- Status badge component: PASS (green), FAIL (red), RUNNING (amber spinner), PENDING (grey)
-- Loading skeletons for all pages
-
-**Realtime updates:** Subscribe to Supabase Realtime on `eval_runs` table for current user's projects — update run status live when worker completes.
-
-**Validation:**
-```bash
-# After running a PR eval end-to-end:
-# Visit /dashboard → see the project
-# Visit /projects/owner/repo → see run history
-# Trigger a new run → watch status update in real-time without page refresh
-npx lighthouse http://localhost:3000/dashboard --only-categories=performance
-# Target: LCP < 1.5s
-pnpm run type-check
-```
-
-**Acceptance criteria:**
-- [ ] Dashboard shows correct projects for logged-in user
-- [ ] Run history shows correct status, scores, and links
-- [ ] Run status updates in real-time without page refresh
-- [ ] Loading skeletons appear before data loads
-- [ ] Pages are server-rendered (initial HTML contains data)
+Status: PLANNED 📋
 
 ---
 
-### Milestone 14 — Web Dashboard: Score Trend Chart + Run Detail
+MILESTONE 14: API Key Management
+Goal: Allow users to generate and manage API keys in the 
+dashboard so the CLI agentura login command works end-to-end.
 
-**Goal:** Score trend chart and per-case breakdown complete the dashboard.
+Tasks:
+- Add ApiKey model to Prisma schema (id, userId, keyHash, 
+  keyPrefix, name, createdAt, lastUsedAt, revokedAt)
+- Store only hashed key in DB, show full key once on creation
+- Add /dashboard/settings/api-keys page
+- tRPC procedures: apiKeys.list, apiKeys.create, apiKeys.revoke
+- Validate API keys in tRPC middleware for CLI-authenticated requests
+- Key format: agt_[random 32 chars]
+- Key prefix (first 8 chars) stored unhashed for display
 
-**Score trend chart (`/projects/[owner]/[repo]`):**
-- Line chart using `recharts` (request human approval if not already in dependencies)
-- One line per eval suite, last 20 runs on X axis
-- Threshold shown as dashed horizontal line
-- Hovering shows run details (commit, date, score)
-
-**Run detail page (`/projects/[owner]/[repo]/runs/[runId]`):**
-- Suite accordion: expand to see case-level results
-- Case table: index, input (truncated, expandable), output (truncated, expandable), expected, score, pass/fail, judge reason
-- Regression indicator if run has baseline comparison
-
-**Settings page (`/projects/[owner]/[repo]/settings`):**
-- Update regression_threshold
-- Update email notification preferences
-- Show GitHub App installation status
-- "Uninstall" link (opens GitHub App settings)
-
-**Validation:**
-```bash
-# After running 5+ eval runs:
-# Visit trend chart → see score history
-# Click a run → see per-case breakdown
-# Expand a case → see full input/output
-pnpm run type-check
-```
-
-**Acceptance criteria:**
-- [ ] Score trend chart renders with correct data for last 20 runs
-- [ ] Threshold line visible on chart
-- [ ] Case table shows input, output, score, and judge reason
-- [ ] Long inputs/outputs truncated with "show more" expander
-- [ ] Settings page saves changes to ProjectSettings table
+Status: PLANNED 📋
 
 ---
 
-### Milestone 15 — Email Notifications
+MILESTONE 15: Landing Page + Waitlist + Pricing
+Goal: A compelling public-facing page that converts visitors 
+to installs. Must work before showing product to any customer.
 
-**Goal:** Email sent on eval failure and weekly digest.
+Tasks:
+- Replace current root / page with marketing landing page
+- Hero section: "Add AI quality checks to every PR in 5 minutes"
+- Subheading: "No code changes. Just install the GitHub App."
+- Hero image: screenshot of the PR comment with results table
+- How it works: 3 steps (Install GitHub App → Add agentura.yaml 
+  → Open a PR → See results)
+- Features section: 3 eval strategies, regression detection,
+  PR comments, dashboard, CLI
+- Pricing section:
+    Free: 3 repos, 100 eval runs/month, community support
+    Pro ($49/month): unlimited repos, unlimited runs, 
+    email support, private repos
+- CTA button: "Install GitHub App" → links to GitHub App install URL
+- Waitlist form (simple email capture for pre-launch)
+- Keep /dashboard route protected behind auth (unchanged)
 
-**Emails to implement (via Resend):**
-
-`eval-failure.tsx` — React Email template:
-- Subject: "Agentura: [owner/repo] eval failed on PR #[N]"
-- Body: suite name, score vs baseline, link to run detail page
-- Only send if `ProjectSettings.emailOnFailure = true`
-
-`weekly-digest.tsx` — sent every Monday:
-- For each project: count of runs last week, pass rate, any regressions
-- Link to dashboard
-
-**BullMQ cron job** in worker: every Monday 8am UTC, send digest to all users with projects.
-
-**Validation:**
-```bash
-# Trigger a failing eval run
-# Verify email arrives in Resend test dashboard within 60s
-# Manually trigger weekly digest job
-# Verify digest email structure
-pnpm run type-check
-```
-
-**Acceptance criteria:**
-- [ ] Failure email sent within 60 seconds of failed run
-- [ ] Email only sent if emailOnFailure setting is true
-- [ ] Weekly digest cron triggers and logs "Sent N digest emails"
-- [ ] Both email templates render without errors
+Status: PLANNED 📋
 
 ---
 
-### Milestone 16 — SDK Package
+MILESTONE 16: CLI Auth Flow
+Goal: Complete the agentura login command end-to-end so 
+developers can authenticate from their terminal.
 
-**Goal:** `@agentura/sdk` publishable and usable for programmatic eval execution.
+Tasks:
+- Build /cli-auth page in web app
+- Page requires GitHub OAuth login (redirect to login if not authed)
+- After login: show user's API key with copy button
+- If no API key exists: auto-generate one and show it
+- Update agentura login CLI command to open this URL
+- Test full flow: agentura login → browser opens → user copies 
+  key → pastes into terminal → CLI saves to ~/.agentura/config.json
 
-**`AgenturaClient` class:**
-```typescript
-class AgenturaClient {
-  constructor(config: { apiKey: string; baseUrl?: string }) {}
-  
-  // Run an eval suite against an in-process function
-  async runSuite(
-    suiteConfig: EvalSuiteConfig,
-    agentFn: AgentFunction,
-    datasetPath: string
-  ): Promise<SuiteRunResult>
-  
-  // Run all suites from an agentura.yaml config
-  async runAll(
-    config: AgenturaConfig,
-    agentFn: AgentFunction,
-    datasetsDir: string
-  ): Promise<EvalRunResult>
-  
-  // Upload results to cloud and get comparison
-  async syncAndCompare(result: EvalRunResult, repo: string, branch: string): Promise<RunComparison>
-}
-```
-
-**README example:**
-```typescript
-import { AgenturaClient } from '@agentura/sdk'
-import { myAgent } from './agent'
-
-const client = new AgenturaClient({ apiKey: process.env.AGENTURA_API_KEY! })
-
-const result = await client.runAll(
-  config,          // parsed agentura.yaml
-  async (input) => ({ output: await myAgent(input), latencyMs: 0 }),
-  './evals'
-)
-
-console.log(`Score: ${result.suites[0].score}`)
-const comparison = await client.syncAndCompare(result, 'owner/repo', 'main')
-if (comparison.hasRegressions) process.exit(1)
-```
-
-**Validation:**
-```bash
-cd packages/sdk && pnpm run build   # Builds to dist/
-# Run the README example against a test agent
-pnpm run type-check
-```
-
-**Acceptance criteria:**
-- [ ] SDK builds to ESM + CJS
-- [ ] `runAll` runs evals and returns correct EvalRunResult
-- [ ] `syncAndCompare` uploads and returns RunComparison
-- [ ] README example works when copy-pasted
+Status: PLANNED 📋
 
 ---
 
-### Milestone 17 — Production Deployment
+MILESTONE 17: SDK Package
+Goal: Optional SDK that agents can use to report richer 
+telemetry (token counts, cost, latency) back to Agentura.
 
-**Goal:** All services live in production, full demo flow works end-to-end.
+Tasks:
+- Publish @agentura/sdk to npm
+- SDK wraps agent HTTP handler and auto-reports token usage
+- Works with any Node.js HTTP framework (Express, Fastify, Next.js)
+- Zero-config: just wrap your handler with agenturaMiddleware()
+- Without SDK: Agentura still works, just shows estimated costs
+- With SDK: shows actual token counts and costs
 
-**Services:**
-- `apps/web` → Vercel (set all env vars, enable Analytics)
-- `apps/worker` → Railway (persistent process, set all env vars)
-- Supabase production project (enable PITR)
-- GitHub App registered in production mode (update webhook URL to Vercel domain)
-- Resend with verified sending domain
-- Sentry for both apps
+Status: PLANNED 📋
 
-**Post-deploy validation (run the full demo flow from Prompt.md, Acts 1–4):**
+---
 
-**Acceptance criteria:**
-- [ ] All 22 steps of the demo flow work in production
-- [ ] GitHub App webhook returns 200 in production
-- [ ] Sentry captures a test error from both apps
-- [ ] Worker processes jobs (check Railway logs)
-- [ ] CLI `npx agentura run` works against production API
+MILESTONE 18: Documentation + Onboarding
+Goal: Self-serve docs so customers can go from zero to first 
+check run without asking for help.
+
+Tasks:
+- /docs route in web app (or docs.agentura.dev subdomain)
+- Quick start guide (target: 5 minutes to first check run)
+- agentura.yaml full config reference
+- Eval strategy guides (golden_dataset, llm_judge, performance)
+- Troubleshooting guide (common errors and fixes)
+- Update GitHub repo README.md with badges and quick start
+- Add CONTRIBUTING.md for open source contributors
+
+Status: PLANNED 📋
+
+---
+
+MILESTONE 19: Dashboard Polish + Settings
+Goal: Improve dashboard UX based on feedback from first customers.
+
+Tasks:
+- User settings page (name, email, delete account)
+- Project settings (rename, delete, change default branch)
+- Pagination on run history (beyond 20 runs)
+- Better empty states (clearer CTAs when no data exists)
+- Mobile responsive layout improvements
+- Add status/health page (/status) showing service uptime
+
+Status: PLANNED 📋
+
+---
+
+TARGET CUSTOMER PERSONA (add to docs/Plan.md):
+
+Primary persona — "Alex"
+- Solo founder or early engineer at an AI-native startup
+- Company size: 2-10 people, seed to Series A
+- Building a product where AI output quality is core value prop
+  (AI writing tool, AI customer support bot, AI code assistant)
+- Ships prompt changes weekly
+- Has zero eval process today
+- Terrified of silent regressions after a prompt change
+- Uses GitHub for everything
+- Comfortable with CLI tools and YAML config
+- Will pay $49/month without needing budget approval
+- Discovery: AI Twitter/X, Hacker News, LangChain/Vercel AI 
+  SDK Discord servers
+
+Key insight: Every competitor (Braintrust, LangSmith, Promptfoo) 
+requires SDK integration or framework lock-in. Agentura's 
+differentiator is zero-SDK, GitHub-native, works with ANY agent 
+that has an HTTP endpoint.
+
+Elevator pitch: "Agentura adds a green/red check to every PR 
+that tells you if your AI agent got better or worse — no code 
+changes required." or "Agentura is the only AI eval platform that requires zero code 
+changes — just install the GitHub App and add a YAML file. 
+Every PR gets an automatic quality check that compares your 
+agent's performance against the baseline."
 
 ---
 
