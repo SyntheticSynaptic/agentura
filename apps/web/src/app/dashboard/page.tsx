@@ -1,35 +1,13 @@
 import { headers } from "next/headers";
+import Link from "next/link";
+import { RelativeTime } from "../../components/dashboard/RelativeTime";
+import { StatusBadge } from "../../components/dashboard/StatusBadge";
 import { appRouter } from "../../server/routers/_app";
 import { createTRPCContext } from "../../server/trpc";
 
 function getAppInstallUrl() {
   const slug = process.env.GITHUB_APP_SLUG?.trim() || "agenturai-ci";
   return `https://github.com/apps/${slug}`;
-}
-
-function getLastRunBadge(lastRun: {
-  status: string;
-  overallPassed: boolean | null;
-  createdAt: Date;
-} | null) {
-  if (!lastRun) {
-    return {
-      label: "No runs",
-      className: "bg-slate-100 text-slate-600",
-    };
-  }
-
-  if (lastRun.overallPassed) {
-    return {
-      label: "Passed",
-      className: "bg-emerald-100 text-emerald-700",
-    };
-  }
-
-  return {
-    label: "Failed",
-    className: "bg-rose-100 text-rose-700",
-  };
 }
 
 export default async function DashboardPage() {
@@ -43,7 +21,7 @@ export default async function DashboardPage() {
   const installUrl = getAppInstallUrl();
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-3 px-6 py-16">
+    <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-3 px-6 py-12">
       <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-500">
         Dashboard
       </p>
@@ -62,27 +40,50 @@ export default async function DashboardPage() {
           </a>
         </section>
       ) : (
-        <ul className="mt-4 space-y-3">
-          {projects.map((project: (typeof projects)[number]) => {
-            const badge = getLastRunBadge(project.lastRun);
-            return (
-              <li
-                key={project.id}
-                className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3"
-              >
-                <div>
-                  <p className="font-medium text-slate-900">
-                    {project.owner}/{project.repo}
-                  </p>
-                  <p className="text-sm text-slate-500">Default branch: {project.defaultBranch}</p>
-                </div>
-                <span className={`rounded-full px-3 py-1 text-xs font-semibold ${badge.className}`}>
-                  {badge.label}
-                </span>
-              </li>
-            );
-          })}
-        </ul>
+        <section className="mt-4 overflow-x-auto rounded-xl border border-slate-200 bg-white">
+          <table className="min-w-full border-collapse text-left text-sm">
+            <thead className="bg-slate-50">
+              <tr>
+                <th className="px-4 py-3 font-semibold text-slate-700">Repository</th>
+                <th className="px-4 py-3 font-semibold text-slate-700">Last run</th>
+                <th className="px-4 py-3 font-semibold text-slate-700">Branch</th>
+                <th className="px-4 py-3 font-semibold text-slate-700">Last updated</th>
+              </tr>
+            </thead>
+            <tbody>
+              {projects.map((project: (typeof projects)[number]) => (
+                <tr key={project.id} className="border-t border-slate-200">
+                  <td className="px-4 py-3 align-middle">
+                    <Link
+                      href={`/dashboard/${project.owner}/${project.repo}`}
+                      className="font-medium text-slate-900 hover:underline"
+                    >
+                      {project.owner}/{project.repo}
+                    </Link>
+                  </td>
+                  <td className="px-4 py-3 align-middle">
+                    {project.lastRun ? (
+                      <StatusBadge
+                        status={project.lastRun.status}
+                        passed={project.lastRun.overallPassed}
+                      />
+                    ) : (
+                      <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
+                        No runs
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 align-middle text-slate-700">
+                    {project.lastRun?.branch ?? "—"}
+                  </td>
+                  <td className="px-4 py-3 align-middle">
+                    {project.lastRun ? <RelativeTime date={project.lastRun.createdAt} /> : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
       )}
     </main>
   );
