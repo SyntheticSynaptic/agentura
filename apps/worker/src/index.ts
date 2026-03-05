@@ -64,6 +64,11 @@ function warnIfGroqApiKeyMissing(): void {
 
 async function startWorker(): Promise<void> {
   loadEnvFileIfPresent();
+  console.log(
+    "[debug] DATABASE_URL:",
+    process.env.DATABASE_URL ? "SET" : "NOT SET"
+  );
+  console.log("[debug] NODE_ENV:", process.env.NODE_ENV);
   assertRequiredEnvVars();
   warnIfGroqApiKeyMissing();
 

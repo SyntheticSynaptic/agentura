@@ -995,3 +995,28 @@ Milestone 13 — verify Vercel deploy now resolves `@agentura/db` and complete p
 
 **Next session:**
 Milestone 13 — rerun Railway deploy and verify worker startup log in production
+
+## Session — 2026-03-05 10:45 UTC
+
+**Milestone:** 13 — Production Deployment
+**Status:** IN PROGRESS
+
+**Files created:**
+- None
+
+**Files modified:**
+- `apps/worker/src/index.ts` — added debug logs for `DATABASE_URL` presence and `NODE_ENV` right before required env assertions
+- `.dockerignore` — added `**/.env`, `**/.env.local`, and `**/.env.production` exclusions to prevent local env files from entering Docker image
+- `docs/Documentation.md` — appended this session entry
+
+**Decisions made:**
+- Kept current worker env loading mechanism and added runtime diagnostics to confirm whether Railway-injected vars are visible inside container startup.
+
+**Validation results:**
+- `pnpm --filter @agentura/worker build`: PASS
+
+**Issues found:**
+- None blocking
+
+**Next session:**
+Milestone 13 — inspect Railway startup logs for debug env output and finalize env wiring fix
