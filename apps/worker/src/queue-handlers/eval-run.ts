@@ -24,6 +24,11 @@ import {
   type ChecksOctokitLike,
 } from "../github/check-runs";
 import {
+  buildPrCommentBody,
+  upsertPrComment,
+  type PrCommentsOctokitLike,
+} from "../github/pr-comments";
+import {
   fetchDatasetFile,
   fetchRepoConfig,
   fetchRubricFile,
@@ -263,7 +268,7 @@ export async function handleEvalRunJob(job: Job<EvalRunJobPayload>): Promise<voi
 
     const octokit = (await getInstallationOctokit(
       installation.githubInstallId
-    )) as unknown as InstallationOctokitLike & ChecksOctokitLike;
+    )) as unknown as InstallationOctokitLike & ChecksOctokitLike & PrCommentsOctokitLike;
 
     const config = await fetchRepoConfig(octokit, owner, repo, branch);
     if (!config) {
@@ -480,6 +485,29 @@ export async function handleEvalRunJob(job: Job<EvalRunJobPayload>): Promise<voi
         conclusion: overallPassed ? "success" : "failure",
         summary,
       });
+    }
+
+    if (prNumber !== null && config.ci.post_comment) {
+      try {
+        const commentBody = buildPrCommentBody(
+          { overallPassed },
+          suiteResults.map((suiteResult) => ({
+            suiteName: suiteResult.suiteName,
+            strategy: suiteResult.strategy,
+            score: suiteResult.score,
+            threshold: suiteResult.threshold,
+            passed: suiteResult.passed,
+            totalCases: suiteResult.totalCases,
+            passedCases: suiteResult.passedCases,
+            metadata: getSuiteMetadata(suiteResult),
+          })),
+          commitSha
+        );
+
+        await upsertPrComment(octokit, owner, repo, prNumber, commentBody);
+      } catch (commentError) {
+        console.error("[worker] failed to upsert PR comment:", commentError);
+      }
     }
   } catch (error) {
     const message = formatError(error);
