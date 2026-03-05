@@ -7,10 +7,10 @@
 
 ## Current Status
 
-**Active milestone:** 13 — Production Deployment
-**Progress:** 12 / 19 milestones complete
-**Last updated:** Milestone 13 deployment configuration committed (code/config prep complete)
-**Next action:** Execute browser-side deployment steps (Vercel, Railway, GitHub App + OAuth URL updates, smoke test)
+**Active milestone:** 14 — API Key Management
+**Progress:** 13 / 19 milestones complete
+**Last updated:** Milestone 13 completed with production smoke test passing
+**Next action:** Begin Milestone 14 implementation for dashboard API key management + CLI auth middleware integration
 
 ---
 
@@ -59,7 +59,7 @@ cd packages/cli && npx tsx src/index.ts run
 | 10 | Baseline comparison + regression | ✅ Complete | Baseline comparison runs on PR evals, regressions/improvements are surfaced in PR comments, and check run conclusion honors `block_on_regression` |
 | 11 | Web dashboard: project + run views | ✅ Complete | `/dashboard`, project detail, and run detail pages validated end-to-end with expandable suite case rows and compact sparkline trend |
 | 12 | CLI: login + sync | ✅ Complete | `agentura login`, `agentura init`, and `agentura run` implemented with local config storage, YAML/dataset loading, colored output, and validated exit-code behavior |
-| 13 | Production Deployment | 📋 Planned | Deploy web to Vercel and worker to Railway, set env vars, update GitHub App webhook URL, run full smoke test |
+| 13 | Production Deployment | ✅ Complete | Production live: web on Vercel (`https://agentura-ci.vercel.app`), worker on Railway, OAuth working, and production PR checks/comments verified |
 | 14 | API Key Management | 📋 Planned | Add API key model and dashboard settings so CLI login works end-to-end |
 | 15 | Landing Page + Waitlist + Pricing | 📋 Planned | Replace `/` with conversion-focused marketing page, pricing, waitlist, and GitHub App CTA |
 | 16 | CLI Auth Flow | 📋 Planned | Build `/cli-auth` page and complete browser-to-terminal API key login handoff |
@@ -78,9 +78,9 @@ Some milestones require human actions outside the codebase. Track them here:
 | 5 | Register GitHub App at github.com/settings/apps/new. Required permissions documented in Plan.md M5. Set Webhook URL to ngrok/smee URL in dev, Vercel URL in prod. | ✅ Complete (dev setup) |
 | 5 | Set `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_WEBHOOK_SECRET`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` in `.env` | ✅ Complete (local) |
 | 5 | Set up smee.io or ngrok for local webhook forwarding | ✅ Complete |
-| 13 | Create Vercel project, connect GitHub repo, set all env vars | ⬜ Pending |
-| 13 | Create Railway project for worker, set all env vars | ⬜ Pending |
-| 13 | Update GitHub App webhook URL to production Vercel domain | ⬜ Pending |
+| 13 | Create Vercel project, connect GitHub repo, set all env vars | ✅ Complete |
+| 13 | Create Railway project for worker, set all env vars | ✅ Complete |
+| 13 | Update GitHub App webhook URL to production Vercel domain | ✅ Complete |
 | 13 | Verify Resend sending domain | ⬜ Pending |
 
 ---
@@ -1071,3 +1071,33 @@ Milestone 13 — rerun Vercel production build and confirm runtime no longer thr
 
 **Next session:**
 Milestone 13 — inspect Railway startup logs for debug env output and finalize env wiring fix
+
+## Session — 2026-03-05 12:30 UTC
+
+**Milestone:** 13 — Production Deployment
+**Status:** COMPLETE
+
+**Files created:**
+- None
+
+**Files modified:**
+- `docs/Documentation.md` — marked Milestone 13 complete in Current Status, Milestone table, Human Actions, and appended this completion handoff
+
+**Decisions made:**
+- Railway deployment stays on Dockerfile path (Nixpacks rollback not applied) because production smoke test proved Docker-based deployment works correctly in this environment.
+
+**Validation results:**
+- Manual production smoke test: PASS
+  - Vercel live at `https://agentura-ci.vercel.app`
+  - Railway worker running and processing jobs
+  - GitHub OAuth login works in production
+  - Production PR triggers Check Run and PR comment
+- Branch cleanup:
+  - `git push origin --delete test-production`: PASS
+  - `git branch -D test-production`: PASS
+
+**Issues found:**
+- None
+
+**Next session:**
+Milestone 14 — implement API key creation/list/revocation and wire CLI auth flow end-to-end
