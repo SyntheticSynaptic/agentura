@@ -27,26 +27,33 @@ interface PerformanceMetadata {
 }
 
 export interface PrCommentsOctokitLike {
-  issues: {
-    listComments(params: {
+  request(
+    route: "GET /repos/{owner}/{repo}/issues/{issue_number}/comments",
+    params: {
       owner: string;
       repo: string;
       issue_number: number;
       per_page?: number;
-    }): Promise<{ data: IssueComment[] }>;
-    updateComment(params: {
+    }
+  ): Promise<{ data: IssueComment[] }>;
+  request(
+    route: "PATCH /repos/{owner}/{repo}/issues/comments/{comment_id}",
+    params: {
       owner: string;
       repo: string;
       comment_id: number;
       body: string;
-    }): Promise<unknown>;
-    createComment(params: {
+    }
+  ): Promise<unknown>;
+  request(
+    route: "POST /repos/{owner}/{repo}/issues/{issue_number}/comments",
+    params: {
       owner: string;
       repo: string;
       issue_number: number;
       body: string;
-    }): Promise<unknown>;
-  };
+    }
+  ): Promise<unknown>;
 }
 
 function formatScore(value: number): string {
@@ -152,31 +159,40 @@ export async function upsertPrComment(
   prNumber: number,
   body: string
 ): Promise<void> {
-  const commentsResponse = await octokit.issues.listComments({
-    owner,
-    repo,
-    issue_number: prNumber,
-    per_page: 100,
-  });
+  const commentsResponse = await octokit.request(
+    "GET /repos/{owner}/{repo}/issues/{issue_number}/comments",
+    {
+      owner,
+      repo,
+      issue_number: prNumber,
+      per_page: 100,
+    }
+  );
 
   const existingComment = commentsResponse.data.find((comment) =>
     comment.body?.includes(AGENTURA_COMMENT_MARKER)
   );
 
   if (existingComment) {
-    await octokit.issues.updateComment({
-      owner,
-      repo,
-      comment_id: existingComment.id,
-      body,
-    });
+    await octokit.request(
+      "PATCH /repos/{owner}/{repo}/issues/comments/{comment_id}",
+      {
+        owner,
+        repo,
+        comment_id: existingComment.id,
+        body,
+      }
+    );
     return;
   }
 
-  await octokit.issues.createComment({
-    owner,
-    repo,
-    issue_number: prNumber,
-    body,
-  });
+  await octokit.request(
+    "POST /repos/{owner}/{repo}/issues/{issue_number}/comments",
+    {
+      owner,
+      repo,
+      issue_number: prNumber,
+      body,
+    }
+  );
 }
