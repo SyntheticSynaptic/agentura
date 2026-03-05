@@ -1,3 +1,5 @@
+import type { ComparisonResult } from "../baseline/compare";
+
 const AGENTURA_COMMENT_MARKER = "<!-- agentura-eval-comment -->";
 
 interface IssueComment {
@@ -64,6 +66,11 @@ function formatScore(value: number): string {
   return value.toFixed(2);
 }
 
+function formatDeltaPercent(delta: number): string {
+  const rounded = Math.round(delta * 100);
+  return `${rounded > 0 ? "+" : ""}${String(rounded)}%`;
+}
+
 function parsePerformanceMetadata(rawMetadata: string | null | undefined): PerformanceMetadata | null {
   if (!rawMetadata || rawMetadata.trim().length === 0) {
     return null;
@@ -95,7 +102,9 @@ function formatPerformanceDetails(suite: SuiteResultForComment): string {
 export function buildPrCommentBody(
   evalRun: EvalRunForComment,
   suiteResults: SuiteResultForComment[],
-  commitSha: string
+  commitSha: string,
+  comparisonResult: ComparisonResult | null = null,
+  baselineFound = true
 ): string {
   const totalSuites = suiteResults.length;
   const passedSuites = suiteResults.filter((suite) => suite.passed).length;
@@ -127,6 +136,39 @@ export function buildPrCommentBody(
 
   lines.push("");
   lines.push(`**Overall: ${overallLabel}** | ${String(passedSuites)}/${String(totalSuites)} suites passed | Commit: \`${shortSha}\``);
+
+  if (!baselineFound) {
+    lines.push("");
+    lines.push("> 📊 No baseline found — this is the first eval run on main.");
+    lines.push("> Merge this PR to establish the baseline.");
+  }
+
+  if (comparisonResult && comparisonResult.regressions.length > 0) {
+    lines.push("");
+    lines.push("## ⚠️ Regressions Detected");
+    lines.push("");
+    lines.push("| Suite | Baseline | Current | Delta |");
+    lines.push("|-------|----------|---------|-------|");
+    for (const regression of comparisonResult.regressions) {
+      lines.push(
+        `| ${regression.suiteName} | ${formatScore(regression.baselineScore)} | ${formatScore(regression.currentScore)} | ${formatDeltaPercent(regression.delta)} |`
+      );
+    }
+  }
+
+  if (comparisonResult && comparisonResult.improvements.length > 0) {
+    lines.push("");
+    lines.push("## 📈 Improvements");
+    lines.push("");
+    lines.push("| Suite | Baseline | Current | Delta |");
+    lines.push("|-------|----------|---------|-------|");
+    for (const improvement of comparisonResult.improvements) {
+      lines.push(
+        `| ${improvement.suiteName} | ${formatScore(improvement.baselineScore)} | ${formatScore(improvement.currentScore)} | ${formatDeltaPercent(improvement.delta)} |`
+      );
+    }
+  }
+
   lines.push("");
   lines.push("<details>");
   lines.push("<summary>View details</summary>");

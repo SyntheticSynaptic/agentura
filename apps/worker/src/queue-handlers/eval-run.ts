@@ -20,9 +20,16 @@ import pLimit from "p-limit";
 
 import {
   createCheckRun,
+  determineCheckRunOutcome,
   updateCheckRun,
   type ChecksOctokitLike,
 } from "../github/check-runs";
+import {
+  compareToBaseline,
+  getBaseline,
+  type BaselineResult,
+  type ComparisonResult,
+} from "../baseline/compare";
 import {
   buildPrCommentBody,
   upsertPrComment,
@@ -395,6 +402,24 @@ export async function handleEvalRunJob(job: Job<EvalRunJobPayload>): Promise<voi
       console.warn(`[worker] no runnable eval suites found for ${owner}/${repo}`);
     }
 
+    const regressionThreshold = config.ci.regression_threshold ?? 0.05;
+    let baselineResult: BaselineResult | null = null;
+    let comparisonResult: ComparisonResult | null = null;
+
+    if (prNumber !== null) {
+      baselineResult = await getBaseline(project.id);
+      if (baselineResult) {
+        comparisonResult = compareToBaseline(
+          suiteResults.map((suite) => ({
+            suiteName: suite.suiteName,
+            score: suite.score,
+          })),
+          baselineResult,
+          regressionThreshold
+        );
+      }
+    }
+
     const overallPassed = suiteResults.every((suite) => suite.passed);
     const totalCases = suiteResults.reduce((total, suite) => total + suite.totalCases, 0);
     const passedCases = suiteResults.reduce((total, suite) => total + suite.passedCases, 0);
@@ -418,6 +443,15 @@ export async function handleEvalRunJob(job: Job<EvalRunJobPayload>): Promise<voi
       });
 
       for (const suiteResult of suiteResults) {
+        const matchedBaselineSuite = baselineResult?.suiteResults.find(
+          (suite) => suite.suiteName === suiteResult.suiteName
+        );
+        const baselineScore = matchedBaselineSuite?.score ?? null;
+        const isRegressed =
+          baselineScore === null
+            ? null
+            : suiteResult.score - baselineScore < -regressionThreshold;
+
         const createdSuite = await transaction.suiteResult.create({
           data: {
             evalRunId: evalRun.id,
@@ -426,8 +460,8 @@ export async function handleEvalRunJob(job: Job<EvalRunJobPayload>): Promise<voi
             score: suiteResult.score,
             threshold: suiteResult.threshold,
             passed: suiteResult.passed,
-            baselineScore: null,
-            regressed: null,
+            baselineScore,
+            regressed: isRegressed,
             totalCases: suiteResult.totalCases,
             passedCases: suiteResult.passedCases,
             durationMs: suiteResult.durationMs,
@@ -475,15 +509,23 @@ export async function handleEvalRunJob(job: Job<EvalRunJobPayload>): Promise<voi
     });
 
     const passedSuites = suiteResults.filter((suite) => suite.passed).length;
-    const summary = `${String(passedSuites)}/${String(suiteResults.length)} suites passed`;
+    const checkRunOutcome = determineCheckRunOutcome({
+      overallPassed,
+      isPrRun: prNumber !== null,
+      blockOnRegression: config.ci.block_on_regression,
+      comparisonResult,
+      baselineFound: baselineResult !== null,
+      passedSuites,
+      totalSuites: suiteResults.length,
+    });
 
     if (githubCheckRunId !== null) {
       await updateCheckRun(octokit, {
         owner,
         repo,
         checkRunId: Number(githubCheckRunId),
-        conclusion: overallPassed ? "success" : "failure",
-        summary,
+        conclusion: checkRunOutcome.conclusion,
+        summary: checkRunOutcome.summary,
       });
     }
 
@@ -501,7 +543,9 @@ export async function handleEvalRunJob(job: Job<EvalRunJobPayload>): Promise<voi
             passedCases: suiteResult.passedCases,
             metadata: getSuiteMetadata(suiteResult),
           })),
-          commitSha
+          commitSha,
+          comparisonResult,
+          baselineResult !== null
         );
 
         await upsertPrComment(octokit, owner, repo, prNumber, commentBody);

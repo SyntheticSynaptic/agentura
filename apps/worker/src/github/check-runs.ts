@@ -1,3 +1,5 @@
+import type { ComparisonResult } from "../baseline/compare";
+
 export type CheckRunConclusion =
   | "success"
   | "failure"
@@ -41,6 +43,65 @@ export interface ChecksOctokitLike {
       };
     }
   ): Promise<unknown>;
+}
+
+export interface CheckRunOutcome {
+  conclusion: CheckRunConclusion;
+  summary: string;
+}
+
+interface DetermineCheckRunOutcomeInput {
+  overallPassed: boolean;
+  isPrRun: boolean;
+  blockOnRegression: boolean;
+  comparisonResult: ComparisonResult | null;
+  baselineFound: boolean;
+  passedSuites: number;
+  totalSuites: number;
+}
+
+function formatDeltaPercent(delta: number): string {
+  const rounded = Math.round(delta * 100);
+  return `${rounded > 0 ? "+" : ""}${String(rounded)}%`;
+}
+
+export function determineCheckRunOutcome(
+  input: DetermineCheckRunOutcomeInput
+): CheckRunOutcome {
+  const hasRegression = Boolean(input.comparisonResult?.hasRegression);
+  const conclusion: CheckRunConclusion =
+    input.blockOnRegression && hasRegression
+      ? "failure"
+      : input.overallPassed
+        ? "success"
+        : "failure";
+
+  if (!input.isPrRun) {
+    return {
+      conclusion,
+      summary: `${String(input.passedSuites)}/${String(input.totalSuites)} suites passed`,
+    };
+  }
+
+  if (!input.baselineFound) {
+    return {
+      conclusion,
+      summary: "First run — no baseline to compare against",
+    };
+  }
+
+  if (hasRegression && input.comparisonResult && input.comparisonResult.regressions.length > 0) {
+    const [firstRegression] = input.comparisonResult.regressions;
+    return {
+      conclusion,
+      summary: `⚠️ Regression detected in ${firstRegression.suiteName}: ${formatDeltaPercent(firstRegression.delta)} vs baseline`,
+    };
+  }
+
+  return {
+    conclusion,
+    summary: `${String(input.passedSuites)}/${String(input.totalSuites)} suites passed vs baseline`,
+  };
 }
 
 export async function createCheckRun(
