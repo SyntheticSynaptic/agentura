@@ -7,10 +7,10 @@
 
 ## Current Status
 
-**Active milestone:** 11 — CLI: init + run
-**Progress:** 10 / 17 milestones complete
-**Last updated:** Milestone 10 completed with manual end-to-end validation passing
-**Next action:** Begin Milestone 11 implementation for CLI init and local eval execution flow
+**Active milestone:** 12 — CLI: login + sync
+**Progress:** 11 / 17 milestones complete
+**Last updated:** Milestone 11 completed with manual end-to-end validation passing
+**Next action:** Begin Milestone 12 implementation for CLI authentication and cloud sync flow
 
 ---
 
@@ -57,7 +57,7 @@ cd packages/cli && npx tsx src/index.ts run
 | 8 | Eval worker: performance + embeddings | ✅ Complete | Performance suites run end-to-end with latency percentile metadata persisted to SuiteResult and GitHub Check Run updates |
 | 9 | PR comment + Check Run | ✅ Complete | Worker posts/upserts PR comment via marker and updates same comment on subsequent pushes |
 | 10 | Baseline comparison + regression | ✅ Complete | Baseline comparison runs on PR evals, regressions/improvements are surfaced in PR comments, and check run conclusion honors `block_on_regression` |
-| 11 | CLI: init + run | ⬜ Not started | — |
+| 11 | Web dashboard: project + run views | ✅ Complete | `/dashboard`, project detail, and run detail pages validated end-to-end with expandable suite case rows and compact sparkline trend |
 | 12 | CLI: login + sync | ⬜ Not started | — |
 | 13 | Dashboard: project list + run history | ⬜ Not started | — |
 | 14 | Dashboard: trend chart + run detail | ⬜ Not started | — |
@@ -228,6 +228,39 @@ Milestone 1 — resolve the Next.js config filename conflict (approve `next.conf
 
 **Next session:**
 Milestone 11 — implement CLI `init` + `run` flow and validate local eval execution UX end-to-end.
+
+---
+
+## Session — 2026-03-05 06:04 UTC
+
+**Milestone:** 11 — Web Dashboard
+**Status:** COMPLETE
+
+**Files created:**
+- None
+
+**Files modified:**
+- `apps/web/src/app/dashboard/[owner]/[repo]/page.tsx` — finalized project detail layout ordering (run history table before trend chart)
+- `apps/web/src/components/dashboard/TrendChart.tsx` — rewrote sparkline rendering with fixed geometry (`CHART_HEIGHT=60`, `DOT_RADIUS=3`, `STROKE_WIDTH=1.5`) and overflow clipping
+- `docs/Documentation.md` — updated current status, milestone table, and added this completion entry
+
+**Decisions made:**
+- Trend chart uses a fixed `viewBox` width (`800`) with `preserveAspectRatio="none"` and fixed y-positions (`10` pass / `50` fail) to keep dot sizing stable across viewport widths.
+
+**Validation results:**
+- `pnpm run type-check`: PASS
+- `pnpm run build`: PASS
+- Manual E2E validation for Milestone 11: PASS
+  - `/dashboard` project list + status badges
+  - `/dashboard/[owner]/[repo]` run history + sparkline
+  - `/dashboard/[owner]/[repo]/runs/[runId]` full run detail
+  - Expandable suite case rows, judgeReason visibility, and performance latency display
+
+**Issues found:**
+- Test cleanup command was a no-op in this session because `M10_TEST.md`, `M9_TEST.md`, `M8_TEST.md`, and `M7_TEST.md` were already absent from `main`.
+
+**Next session:**
+Milestone 12 — implement CLI login + sync flow with authenticated local-to-cloud run synchronization.
 
 ---
 
