@@ -504,8 +504,6 @@ export async function handleEvalRunJob(job: Job<EvalRunJobPayload>): Promise<voi
           commitSha
         );
 
-        console.log("[debug] octokit type:", typeof octokit);
-        console.log("[debug] octokit keys:", Object.keys(octokit));
         await upsertPrComment(octokit, owner, repo, prNumber, commentBody);
       } catch (commentError) {
         console.error("[worker] failed to upsert PR comment:", commentError);

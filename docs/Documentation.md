@@ -7,10 +7,10 @@
 
 ## Current Status
 
-**Active milestone:** 9 — PR comment + Check Run
-**Progress:** 8 / 17 milestones complete
-**Last updated:** Milestone 8 completed with manual end-to-end validation passing
-**Next action:** Implement Milestone 9 PR comment posting and GitHub Check Run summary details
+**Active milestone:** 10 — Baseline comparison + regression
+**Progress:** 9 / 17 milestones complete
+**Last updated:** Milestone 9 completed with manual end-to-end validation passing
+**Next action:** Implement baseline lookup and regression detection in worker + PR comment/check run output
 
 ---
 
@@ -55,7 +55,7 @@ cd packages/cli && npx tsx src/index.ts run
 | 6 | Eval worker: golden dataset | ✅ Complete | Worker processes eval-run jobs end-to-end for golden_dataset, persists results, and updates GitHub Check Runs |
 | 7 | Eval worker: LLM judge | ✅ Complete | Groq-backed llm_judge suite execution works end-to-end with persisted judge reasoning and PR check updates |
 | 8 | Eval worker: performance + embeddings | ✅ Complete | Performance suites run end-to-end with latency percentile metadata persisted to SuiteResult and GitHub Check Run updates |
-| 9 | PR comment + Check Run | ⬜ Not started | — |
+| 9 | PR comment + Check Run | ✅ Complete | Worker posts/upserts PR comment via marker and updates same comment on subsequent pushes |
 | 10 | Baseline comparison + regression | ⬜ Not started | — |
 | 11 | CLI: init + run | ⬜ Not started | — |
 | 12 | CLI: login + sync | ⬜ Not started | — |
@@ -676,3 +676,32 @@ Milestone 8 — implement performance strategy and semantic similarity with embe
 
 **Next session:**
 Milestone 9 — implement PR comment posting and finalize Check Run output formatting/details
+
+## Session — 2026-03-05 03:18 UTC
+
+**Milestone:** 9 — PR comment + Check Run
+**Status:** COMPLETE
+
+**Files created:**
+- `apps/worker/src/github/pr-comments.ts` — PR comment builder and marker-based upsert helper using GitHub Issues comment APIs
+
+**Files modified:**
+- `apps/worker/src/queue-handlers/eval-run.ts` — wired PR comment posting after check run update, then removed temporary octokit debug logs after validation
+- `apps/worker/src/github/pr-comments.ts` — switched to `octokit.request(...)` route calls for list/create/update comment compatibility
+- `docs/Documentation.md` — updated milestone status and appended this completion entry
+
+**Decisions made:**
+- Use marker-based upsert (`<!-- agentura-eval-comment -->`) for one durable Agentura PR comment per PR, and use `octokit.request(...)` route calls for compatibility across installation octokit shapes.
+
+**Validation results:**
+- `pnpm run type-check`: PASS
+- Manual validation: PR comment appears with results table: PASS
+- Manual validation: all three suites shown (`accuracy`, `quality`, `speed`): PASS
+- Manual validation: second commit updated existing comment (no duplicate): PASS
+- Manual validation: commit SHA updated correctly on second push: PASS
+
+**Issues found:**
+- Installation octokit instance did not expose named `issues.*` helpers in this runtime; resolved by switching to explicit route-based `octokit.request(...)` calls.
+
+**Next session:**
+Milestone 10 — implement baseline run lookup, regression detection, and baseline/delta rendering in PR comment + check run summary
