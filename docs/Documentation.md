@@ -996,6 +996,31 @@ Milestone 13 — verify Vercel deploy now resolves `@agentura/db` and complete p
 **Next session:**
 Milestone 13 — rerun Railway deploy and verify worker startup log in production
 
+## Session — 2026-03-05 11:35 UTC
+
+**Milestone:** 13 — Production Deployment
+**Status:** IN PROGRESS
+
+**Files created:**
+- None
+
+**Files modified:**
+- `packages/db/prisma/schema.prisma` — added explicit Prisma binary targets for Vercel Linux runtimes (`native`, `rhel-openssl-3.0.x`, `rhel-openssl-1.0.x`)
+- `apps/web/next.config.mjs` — added `experimental.outputFileTracingIncludes` for Prisma `.node` engine files
+- `docs/Documentation.md` — appended this session handoff
+
+**Decisions made:**
+- Keep `apps/web/vercel.json` build command unchanged because it was already correctly set to build `@agentura/db` before `@agentura/web`.
+
+**Validation results:**
+- `pnpm run build`: PASS (required elevated network access for Prisma binary download in this environment)
+
+**Issues found:**
+- Initial local build attempt failed due sandbox DNS restriction when Prisma tried to download additional engine binaries; resolved by rerunning with network access.
+
+**Next session:**
+Milestone 13 — redeploy Vercel and verify Prisma query engine initialization succeeds in production runtime
+
 ## Session — 2026-03-05 10:45 UTC
 
 **Milestone:** 13 — Production Deployment
