@@ -7,10 +7,10 @@
 
 ## Current Status
 
-**Active milestone:** 7 — Eval worker: LLM judge
-**Progress:** 6 / 17 milestones complete
-**Last updated:** Milestone 7 LLM judge core implementation completed (awaiting manual E2E validation)
-**Next action:** Run Milestone 7 manual E2E with a real `GROQ_API_KEY` and verify SuiteResult/CaseResult judge output persistence
+**Active milestone:** 8 — Eval worker: performance + embeddings
+**Progress:** 7 / 17 milestones complete
+**Last updated:** Milestone 7 completed with manual end-to-end validation passing
+**Next action:** Implement Milestone 8 performance strategy and semantic similarity with embedding cache
 
 ---
 
@@ -53,7 +53,7 @@ cd packages/cli && npx tsx src/index.ts run
 | 4 | Next.js base + tRPC + GitHub OAuth | ✅ Complete | OAuth login/callback, protected routes, users.me, and health endpoint validated |
 | 5 | GitHub App: install + webhook | ✅ Complete | Webhook signature verification, installation/project sync, and eval-run enqueue validated end-to-end |
 | 6 | Eval worker: golden dataset | ✅ Complete | Worker processes eval-run jobs end-to-end for golden_dataset, persists results, and updates GitHub Check Runs |
-| 7 | Eval worker: LLM judge | 🟡 In progress | Groq-backed llm_judge scorer/strategy implemented with worker integration and tests passing; awaiting manual E2E confirmation |
+| 7 | Eval worker: LLM judge | ✅ Complete | Groq-backed llm_judge suite execution works end-to-end with persisted judge reasoning and PR check updates |
 | 8 | Eval worker: performance + embeddings | ⬜ Not started | — |
 | 9 | PR comment + Check Run | ⬜ Not started | — |
 | 10 | Baseline comparison + regression | ⬜ Not started | — |
@@ -619,3 +619,32 @@ Milestone 7 — implement LLM judge strategy in worker with `temperature: 0`, st
 
 **Next session:**
 Milestone 7 — run manual end-to-end llm_judge validation with a real `GROQ_API_KEY`, then mark milestone complete after confirming SuiteResult + CaseResult `judgeReason` persistence in Supabase and check run visibility on PR
+
+## Session — 2026-03-05 01:24 UTC
+
+**Milestone:** 7 — Eval worker: LLM judge
+**Status:** COMPLETE
+
+**Files created:**
+- None
+
+**Files modified:**
+- `docs/Documentation.md` — updated current status/milestone table and appended this completion entry
+- `M7_TEST.md` — removed temporary Milestone 7 test file from repository
+
+**Decisions made:**
+- Keep Groq as the llm_judge provider for Milestone 7 with `temperature: 0` and `estimatedCostUsd = 0` under current free-tier assumptions.
+
+**Validation results:**
+- `pnpm run type-check`: PASS
+- `pnpm --filter @agentura/eval-runner run test`: PASS
+- Manual validation: worker logged `Running llm_judge suite: quality`: PASS
+- Manual validation: `SuiteResult` row in Supabase for `quality` suite with pass/fail result: PASS
+- Manual validation: `CaseResult` rows persisted with `judgeReason` from Groq: PASS
+- Manual validation: GitHub Check Run green on PR: PASS
+
+**Issues found:**
+- None
+
+**Next session:**
+Milestone 8 — implement performance strategy and semantic similarity with embedding cache, then validate cache-hit behavior and latency metric persistence
