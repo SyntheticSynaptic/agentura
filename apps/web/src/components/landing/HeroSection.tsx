@@ -1,4 +1,6 @@
 export function HeroSection() {
+  const installUrl = "https://github.com/apps/agentura-ci/installations/new";
+
   return (
     <section className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-6 py-16">
       <div className="mx-auto w-full max-w-4xl text-center">
@@ -12,7 +14,7 @@ export function HeroSection() {
         </p>
         <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <a
-            href="https://github.com/apps/agenturai-ci/installations/new"
+            href={installUrl}
             target="_blank"
             rel="noreferrer"
             className="inline-flex w-full items-center justify-center rounded-md bg-violet-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-violet-400 sm:w-auto"
@@ -28,7 +30,7 @@ export function HeroSection() {
             View on GitHub
           </a>
         </div>
-        <p className="mt-5 text-sm text-slate-400">Free for 3 repos · No credit card required</p>
+        <p className="mt-5 text-sm text-slate-400">Free for 1 repo · No credit card required</p>
       </div>
     </section>
   );

@@ -1,6 +1,8 @@
 import Link from "next/link";
 
 export function NavBar() {
+  const installUrl = "https://github.com/apps/agentura-ci/installations/new";
+
   return (
     <header className="sticky top-0 z-50 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur">
       <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-6">
@@ -20,7 +22,7 @@ export function NavBar() {
             Dashboard
           </Link>
           <a
-            href="https://github.com/apps/agenturai-ci/installations/new"
+            href={installUrl}
             target="_blank"
             rel="noreferrer"
             className="rounded-md bg-violet-500 px-3 py-2 font-semibold text-white transition hover:bg-violet-400"
