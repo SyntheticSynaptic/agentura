@@ -5,12 +5,12 @@ export function HeroSection() {
     <section className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-6 py-16">
       <div className="mx-auto w-full max-w-4xl text-center">
         <h1 className="text-balance text-4xl font-bold tracking-tight text-white sm:text-6xl">
-          Know if your AI got better or worse on every PR
+          Catch broken AI answers before your users do
         </h1>
         <p className="mx-auto mt-6 max-w-3xl text-pretty text-lg leading-relaxed text-slate-300">
-          Agentura automatically tests your AI agent on every pull request and tells you if
-          it got better or worse. No code changes required. Just install the GitHub App and
-          add a YAML file.
+          Every time your team makes a code change, your AI agent&apos;s behavior can shift in
+          unexpected ways. Agentura automatically runs your test suite on every pull request
+          and alerts you the moment something breaks — before it ships.
         </p>
         <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <a

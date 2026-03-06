@@ -1,32 +1,32 @@
 const features = [
   {
-    title: "Catch Regressions Before They Ship",
+    title: "Know The Moment Something Breaks",
     description:
-      "Every PR is automatically tested against your eval suite. Know immediately if a prompt change broke something.",
+      "Define test cases for your specific use case. Every PR automatically checks if your agent still passes them.",
   },
   {
-    title: "No Code Changes Required",
+    title: "No Changes To Your Agent",
     description:
-      "Works with any agent that has an HTTP endpoint. No SDK. No library. No lock-in.",
+      "Works with any agent that has an HTTP endpoint. No SDK. No library. No lock-in. If it speaks HTTP, Agentura can test it.",
   },
   {
-    title: "LLM-as-Judge for Subjective Quality",
+    title: "Test Subjective Quality Too",
     description:
-      "Use an LLM to score tone, accuracy, and helpfulness — not just exact string matches.",
+      "When there's no single correct answer, use an LLM judge to score quality against a rubric you define — tone, helpfulness, accuracy.",
   },
   {
-    title: "Track Performance Over Time",
+    title: "Track Speed Across Every Change",
     description:
-      "See latency trends across every eval run. Know when your agent slows down before your users do.",
+      "Measure your agent's response time on every PR. Get alerted when a code change makes it slower.",
   },
   {
-    title: "Baseline Comparison on Every PR",
+    title: "Compare Every PR To Your Baseline",
     description:
-      "Agentura compares every PR against your main branch baseline and shows you the delta.",
+      "See exactly how your agent's scores changed compared to the main branch. Delta shown on every PR.",
   },
   {
-    title: "Run Evals Locally Too",
-    description: "Use the CLI to test before pushing. 'agentura run' gives instant feedback in your terminal.",
+    title: "Test Locally Before Pushing",
+    description: "Run 'agentura run' in your terminal before opening a PR. Instant feedback, same test cases, no waiting.",
   },
 ];
 

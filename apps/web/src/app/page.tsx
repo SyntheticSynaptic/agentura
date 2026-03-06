@@ -5,6 +5,7 @@ import { HowItWorksSection } from "../components/landing/HowItWorksSection";
 import { NavBar } from "../components/landing/NavBar";
 import { PricingSection } from "../components/landing/PricingSection";
 import { PrCommentMockupSection } from "../components/landing/PrCommentMockupSection";
+import { ScenariosSection } from "../components/landing/ScenariosSection";
 import { SocialProofBar } from "../components/landing/SocialProofBar";
 import { WaitlistForm } from "../components/landing/WaitlistForm";
 
@@ -14,6 +15,7 @@ export default function HomePage() {
       <NavBar />
       <main>
         <HeroSection />
+        <ScenariosSection />
         <SocialProofBar />
         <HowItWorksSection />
         <PrCommentMockupSection />

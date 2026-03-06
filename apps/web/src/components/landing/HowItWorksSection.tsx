@@ -8,13 +8,13 @@ const steps = [
     icon: "📄",
     title: "Add one YAML file",
     description:
-      "Point it at your agent endpoint. No code changes to your agent.",
+      "Write test cases for your specific use case — accurate answers, correct tone, fast responses. Drop them in a YAML file.",
   },
   {
     icon: "✅",
-    title: "Every PR gets an automatic test",
+    title: "Get alerted the moment something breaks",
     description:
-      "Open a PR. Agentura runs your evals and posts a pass/fail result with full details.",
+      "Open a PR. Agentura runs your test cases against your agent and posts pass/fail results in the PR. Merge with confidence.",
   },
 ];
 
