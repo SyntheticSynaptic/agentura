@@ -136,3 +136,13 @@ model ApiKey {
   lastUsedAt DateTime?
   revokedAt  DateTime?
 }
+
+model CliToken {
+  id          String   @id @default(cuid())
+  token       String   @unique
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime
+  fulfilledAt DateTime?
+  apiKeyId    String?
+  apiKeyRaw   String?
+}

@@ -1,61 +1,90 @@
+import { prisma } from "@agentura/db";
+
 export interface PendingToken {
   token: string;
   createdAt: Date;
-  apiKeyId?: string;
-  apiKeyRaw?: string;
+  expiresAt: Date;
+  apiKeyId?: string | null;
+  apiKeyRaw?: string | null;
+  fulfilledAt?: Date | null;
 }
 
 const TEN_MINUTES_MS = 10 * 60 * 1000;
-const pendingTokens = new Map<string, PendingToken>();
 
-function isExpired(entry: PendingToken): boolean {
-  return Date.now() - entry.createdAt.getTime() > TEN_MINUTES_MS;
-}
-
-export function cleanExpiredTokens(): void {
-  for (const [token, entry] of pendingTokens.entries()) {
-    if (isExpired(entry)) {
-      pendingTokens.delete(token);
-    }
-  }
-}
-
-export function createPendingToken(token: string): void {
-  cleanExpiredTokens();
-  pendingTokens.set(token, {
-    token,
-    createdAt: new Date(),
+export async function cleanExpiredTokens(): Promise<void> {
+  await prisma.cliToken.deleteMany({
+    where: {
+      expiresAt: {
+        lte: new Date(),
+      },
+    },
   });
 }
 
-export function getPendingToken(token: string): PendingToken | undefined {
-  cleanExpiredTokens();
-  const entry = pendingTokens.get(token);
-  if (!entry) {
-    return undefined;
-  }
+export async function createPendingToken(token: string): Promise<void> {
+  const createdAt = new Date();
+  const expiresAt = new Date(createdAt.getTime() + TEN_MINUTES_MS);
 
-  if (isExpired(entry)) {
-    pendingTokens.delete(token);
+  await prisma.cliToken.upsert({
+    where: { token },
+    update: {
+      createdAt,
+      expiresAt,
+      fulfilledAt: null,
+      apiKeyId: null,
+      apiKeyRaw: null,
+    },
+    create: {
+      token,
+      createdAt,
+      expiresAt,
+    },
+  });
+}
+
+export async function getPendingToken(token: string): Promise<PendingToken | undefined> {
+  const entry = await prisma.cliToken.findFirst({
+    where: {
+      token,
+      expiresAt: {
+        gt: new Date(),
+      },
+    },
+    select: {
+      token: true,
+      createdAt: true,
+      expiresAt: true,
+      fulfilledAt: true,
+      apiKeyId: true,
+      apiKeyRaw: true,
+    },
+  });
+
+  if (!entry) {
     return undefined;
   }
 
   return entry;
 }
 
-export function fulfillToken(token: string, apiKeyId: string, apiKeyRaw: string): void {
-  const entry = getPendingToken(token);
-  if (!entry) {
-    return;
-  }
-
-  pendingTokens.set(token, {
-    ...entry,
-    apiKeyId,
-    apiKeyRaw,
+export async function fulfillToken(token: string, apiKeyId: string, apiKeyRaw: string): Promise<void> {
+  await prisma.cliToken.updateMany({
+    where: {
+      token,
+      expiresAt: {
+        gt: new Date(),
+      },
+    },
+    data: {
+      apiKeyId,
+      apiKeyRaw,
+      fulfilledAt: new Date(),
+    },
   });
 }
 
-export function deletePendingToken(token: string): void {
-  pendingTokens.delete(token);
+export async function deletePendingToken(token: string): Promise<void> {
+  await prisma.cliToken.deleteMany({
+    where: { token },
+  });
 }

@@ -4,6 +4,9 @@ import { generateApiKey } from "../../../../lib/api-keys";
 import { fulfillToken, getPendingToken } from "../../../../lib/cli-tokens";
 import { createSupabaseServerClient } from "../../../../lib/supabase/server";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const TOKEN_PATTERN = /^[a-zA-Z0-9]{32,64}$/;
 
 interface ApprovePayload {
@@ -44,7 +47,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: false, error: "invalid_token" }, { status: 400 });
   }
 
-  const pendingToken = getPendingToken(token);
+  const pendingToken = await getPendingToken(token);
   if (!pendingToken) {
     return NextResponse.json({ success: false, error: "token_not_found" }, { status: 404 });
   }
@@ -88,6 +91,6 @@ export async function POST(request: Request) {
     },
   });
 
-  fulfillToken(token, apiKey.id, raw);
+  await fulfillToken(token, apiKey.id, raw);
   return NextResponse.json({ success: true });
 }

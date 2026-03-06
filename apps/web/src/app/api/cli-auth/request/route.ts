@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { createPendingToken } from "../../../../lib/cli-tokens";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const TOKEN_PATTERN = /^[a-zA-Z0-9]{32,64}$/;
 
 interface RequestPayload {
@@ -21,6 +24,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: false, error: "invalid_token" }, { status: 400 });
   }
 
-  createPendingToken(token);
+  await createPendingToken(token);
   return NextResponse.json({ success: true });
 }
