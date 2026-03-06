@@ -7,10 +7,10 @@
 
 ## Current Status
 
-**Active milestone:** 15 — Landing Page + Waitlist + Pricing
-**Progress:** 14 / 19 milestones complete
-**Last updated:** Milestone 15 implementation in progress (landing page sections + waitlist API endpoint shipped locally)
-**Next action:** Run manual landing-page checks in browser, then confirm production deploy behavior on Vercel
+**Active milestone:** 16 — CLI Auth Flow
+**Progress:** 15 / 19 milestones complete
+**Last updated:** Milestone 15 completed (landing page + waitlist shipped) and Milestone 16 implementation started with `/cli-auth`
+**Next action:** Validate `/cli-auth` browser-to-terminal flow end-to-end and then mark Milestone 16 complete
 
 ---
 
@@ -61,8 +61,8 @@ cd packages/cli && npx tsx src/index.ts run
 | 12 | CLI: login + sync | ✅ Complete | `agentura login`, `agentura init`, and `agentura run` implemented with local config storage, YAML/dataset loading, colored output, and validated exit-code behavior |
 | 13 | Production Deployment | ✅ Complete | Production live: web on Vercel (`https://agentura-ci.vercel.app`), worker on Railway, OAuth working, and production PR checks/comments verified |
 | 14 | API Key Management | ✅ Complete | API key management shipped end-to-end (create/list/revoke), one-time raw key reveal enforced, and CLI login validated with generated keys |
-| 15 | Landing Page + Waitlist + Pricing | 🚧 In progress | Public landing page implemented locally with hero, PR comment mockup, pricing, and `/api/waitlist` success flow |
-| 16 | CLI Auth Flow | 📋 Planned | Build `/cli-auth` page and complete browser-to-terminal API key login handoff |
+| 15 | Landing Page + Waitlist + Pricing | ✅ Complete | Public landing page shipped with hero, social proof, PR comment mockup, feature grid, 3-tier pricing, and waitlist submission endpoint |
+| 16 | CLI Auth Flow | 🚧 In progress | `/cli-auth` page added with auth guard and one-time CLI token generation/copy UX powered by existing `apiKeys.create` |
 | 17 | SDK Package | 📋 Planned | Publish optional `@agentura/sdk` middleware for richer telemetry reporting |
 | 18 | Documentation + Onboarding | 📋 Planned | Build self-serve docs, strategy guides, troubleshooting, and contributor onboarding |
 | 19 | Dashboard Polish + Settings | 📋 Planned | Improve settings UX, pagination, mobile responsiveness, and health/status page |
@@ -1197,3 +1197,27 @@ Milestone 15 — Landing Page + Waitlist + Pricing
 
 **Next session:**
 Milestone 15 — run manual browser checks (landing sections, waitlist success state, `/dashboard` accessibility), then mark milestone complete
+
+## Session — 2026-03-06 03:25 UTC
+
+**Milestone:** 16 — CLI Auth Flow
+**Status:** IN PROGRESS
+
+**Files created:**
+- `apps/web/src/app/cli-auth/page.tsx` — CLI auth page with session check, token generation via `apiKeys.create`, one-time reveal, copy/dismiss flow, and close-window confirmation message
+
+**Files modified:**
+- `docs/Documentation.md` — marked Milestone 15 complete, set Milestone 16 in progress, and appended this session handoff
+
+**Decisions made:**
+- Reused existing `apiKeys.create` mutation exactly as requested (`name: "CLI Token"`), with no new API routes.
+
+**Validation results:**
+- `pnpm run type-check`: PASS
+- `pnpm run build`: PASS
+
+**Issues found:**
+- Local build emits non-blocking DNS warnings for an unavailable Upstash hostname in this environment; build still succeeds.
+
+**Next session:**
+Milestone 16 — run local/browser validation of `/cli-auth`, confirm CLI login handoff, then mark milestone complete
