@@ -7,10 +7,10 @@
 
 ## Current Status
 
-**Active milestone:** 16 — CLI Auth Flow
-**Progress:** 15 / 19 milestones complete
-**Last updated:** Milestone 16 browser-based CLI auth flow implemented (`request/exchange/approve` API + CLI polling + `/cli-auth` approval UI)
-**Next action:** Run manual end-to-end CLI auth validation (browser approve flow, manual fallback, unauth redirect flow)
+**Active milestone:** 17 — SDK Package
+**Progress:** 16 / 19 milestones complete
+**Last updated:** Milestone 16 complete: browser-based CLI auth flow fully validated end-to-end with Prisma-backed token persistence across serverless invocations
+**Next action:** Begin Milestone 17 — design and publish `@agentura/sdk` middleware for richer telemetry reporting
 
 ---
 
@@ -62,7 +62,7 @@ cd packages/cli && npx tsx src/index.ts run
 | 13 | Production Deployment | ✅ Complete | Production live: web on Vercel (`https://agentura-ci.vercel.app`), worker on Railway, OAuth working, and production PR checks/comments verified |
 | 14 | API Key Management | ✅ Complete | API key management shipped end-to-end (create/list/revoke), one-time raw key reveal enforced, and CLI login validated with generated keys |
 | 15 | Landing Page + Waitlist + Pricing | ✅ Complete | Public landing page shipped with hero, social proof, PR comment mockup, feature grid, 3-tier pricing, and waitlist submission endpoint |
-| 16 | CLI Auth Flow | 🚧 In progress | Device-style browser auth flow implemented: CLI token request/polling, `/cli-auth` approval UI, signed auth-only approve endpoint, and manual fallback flag |
+| 16 | CLI Auth Flow | ✅ Complete | Browser auth flow validated end-to-end, CLI key saved to `~/.agentura/config.json`, and token exchange persistence moved from in-memory storage to Prisma for serverless reliability |
 | 17 | SDK Package | 📋 Planned | Publish optional `@agentura/sdk` middleware for richer telemetry reporting |
 | 18 | Documentation + Onboarding | 📋 Planned | Build self-serve docs, strategy guides, troubleshooting, and contributor onboarding |
 | 19 | Dashboard Polish + Settings | 📋 Planned | Improve settings UX, pagination, mobile responsiveness, and health/status page |
@@ -1254,3 +1254,32 @@ Milestone 16 — run local/browser validation of `/cli-auth`, confirm CLI login 
 
 **Next session:**
 Milestone 16 — run the three manual E2E tests (browser auth, manual fallback, unauth flow), then mark milestone complete if all pass
+
+## Session — 2026-03-06 06:40 UTC
+
+**Milestone:** 16 — CLI Auth Flow
+**Status:** COMPLETE
+
+**Files created:**
+- None
+
+**Files modified:**
+- `docs/Documentation.md` — marked Milestone 16 complete in Current Status + Milestone table and appended this completion entry
+
+**Decisions made:**
+- Moved CLI auth token persistence from in-memory storage to Prisma-backed `CliToken` records for serverless-safe request/exchange continuity across Vercel invocations.
+
+**Validation results:**
+- `pnpm run type-check`: PASS
+- `pnpm run build`: PASS
+- Manual E2E validation for Milestone 16: PASS
+  - Browser auth flow works end-to-end
+  - API key saved to `~/.agentura/config.json`
+  - Token persists across serverless invocations via Prisma
+  - Dashboard loads correctly
+
+**Issues found:**
+- None
+
+**Next session:**
+Milestone 17 — SDK Package
