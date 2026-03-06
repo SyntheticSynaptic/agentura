@@ -9,8 +9,8 @@
 
 **Active milestone:** 15 — Landing Page + Waitlist + Pricing
 **Progress:** 14 / 19 milestones complete
-**Last updated:** Milestone 14 completed (API key creation/list/revoke validated in production and CLI login confirmed)
-**Next action:** Begin Milestone 15 and replace `/` with the public marketing landing page + waitlist flow
+**Last updated:** Milestone 15 implementation in progress (landing page sections + waitlist API endpoint shipped locally)
+**Next action:** Run manual landing-page checks in browser, then confirm production deploy behavior on Vercel
 
 ---
 
@@ -61,7 +61,7 @@ cd packages/cli && npx tsx src/index.ts run
 | 12 | CLI: login + sync | ✅ Complete | `agentura login`, `agentura init`, and `agentura run` implemented with local config storage, YAML/dataset loading, colored output, and validated exit-code behavior |
 | 13 | Production Deployment | ✅ Complete | Production live: web on Vercel (`https://agentura-ci.vercel.app`), worker on Railway, OAuth working, and production PR checks/comments verified |
 | 14 | API Key Management | ✅ Complete | API key management shipped end-to-end (create/list/revoke), one-time raw key reveal enforced, and CLI login validated with generated keys |
-| 15 | Landing Page + Waitlist + Pricing | 📋 Planned | Replace `/` with conversion-focused marketing page, pricing, waitlist, and GitHub App CTA |
+| 15 | Landing Page + Waitlist + Pricing | 🚧 In progress | Public landing page implemented locally with hero, PR comment mockup, pricing, and `/api/waitlist` success flow |
 | 16 | CLI Auth Flow | 📋 Planned | Build `/cli-auth` page and complete browser-to-terminal API key login handoff |
 | 17 | SDK Package | 📋 Planned | Publish optional `@agentura/sdk` middleware for richer telemetry reporting |
 | 18 | Documentation + Onboarding | 📋 Planned | Build self-serve docs, strategy guides, troubleshooting, and contributor onboarding |
@@ -1161,3 +1161,39 @@ Milestone 14 — implement API key creation/list/revocation and wire CLI auth fl
 
 **Next session:**
 Milestone 15 — Landing Page + Waitlist + Pricing
+
+## Session — 2026-03-06 01:40 UTC
+
+**Milestone:** 15 — Landing Page + Waitlist + Pricing
+**Status:** IN PROGRESS
+
+**Files created:**
+- `apps/web/src/app/globals.css` — global Tailwind entrypoint and minor base styles (dark color scheme + smooth anchor scrolling)
+- `apps/web/src/app/api/waitlist/route.ts` — temporary waitlist endpoint (validates email, logs signup, returns success JSON)
+- `apps/web/src/components/landing/NavBar.tsx` — sticky top navigation with GitHub/Dashboard links and install CTA
+- `apps/web/src/components/landing/HeroSection.tsx` — full-viewport hero with primary and secondary CTAs
+- `apps/web/src/components/landing/SocialProofBar.tsx` — slim trust bar
+- `apps/web/src/components/landing/HowItWorksSection.tsx` — 3-step onboarding section
+- `apps/web/src/components/landing/PrCommentMockupSection.tsx` — GitHub-style PR comment mock rendered in HTML/CSS
+- `apps/web/src/components/landing/FeaturesSection.tsx` — six feature cards
+- `apps/web/src/components/landing/PricingSection.tsx` — free/pro pricing cards with install + waitlist CTAs
+- `apps/web/src/components/landing/WaitlistForm.tsx` — client-side waitlist form with success/error states
+- `apps/web/src/components/landing/FooterSection.tsx` — footer links
+
+**Files modified:**
+- `apps/web/src/app/page.tsx` — replaced placeholder with full landing page composed from section components
+- `apps/web/src/app/layout.tsx` — imported `globals.css` so Tailwind/global styles are applied
+- `docs/Documentation.md` — updated current status, milestone row, and appended this session handoff
+
+**Decisions made:**
+- Added a small scope expansion (`layout.tsx` import + `/api/waitlist` + landing components) because the milestone requirements explicitly required a working waitlist POST and componentized sections.
+
+**Validation results:**
+- `pnpm run type-check`: PASS
+- `pnpm run build`: PASS
+
+**Issues found:**
+- Local build still emits non-blocking DNS warnings for an unavailable Upstash hostname in this environment; build completes successfully.
+
+**Next session:**
+Milestone 15 — run manual browser checks (landing sections, waitlist success state, `/dashboard` accessibility), then mark milestone complete

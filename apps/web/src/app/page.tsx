@@ -1,19 +1,38 @@
+import { FeaturesSection } from "../components/landing/FeaturesSection";
+import { FooterSection } from "../components/landing/FooterSection";
+import { HeroSection } from "../components/landing/HeroSection";
+import { HowItWorksSection } from "../components/landing/HowItWorksSection";
+import { NavBar } from "../components/landing/NavBar";
+import { PricingSection } from "../components/landing/PricingSection";
+import { PrCommentMockupSection } from "../components/landing/PrCommentMockupSection";
+import { SocialProofBar } from "../components/landing/SocialProofBar";
+import { WaitlistForm } from "../components/landing/WaitlistForm";
+
 export default function HomePage() {
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col items-center justify-center gap-3 px-6 text-center">
-      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-        Agentura
-      </p>
-      <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
-        App is running
-      </h1>
-      <p className="text-slate-600">
-        Milestone 4 foundation is live. Continue at{" "}
-        <a className="font-medium text-slate-900 underline" href="/login">
-          /login
-        </a>
-        .
-      </p>
-    </main>
+    <div className="bg-slate-950 text-slate-100">
+      <NavBar />
+      <main>
+        <HeroSection />
+        <SocialProofBar />
+        <HowItWorksSection />
+        <PrCommentMockupSection />
+        <FeaturesSection />
+        <PricingSection />
+        <section id="waitlist" className="px-6 py-20">
+          <div className="mx-auto w-full max-w-3xl rounded-xl border border-slate-800 bg-slate-900/70 p-8">
+            <h2 className="text-3xl font-semibold tracking-tight text-white">Get early access to Pro</h2>
+            <p className="mt-3 text-slate-300">
+              We&apos;re onboarding teams one by one. Join the waitlist and we&apos;ll reach out
+              when you&apos;re up.
+            </p>
+            <div className="mt-6">
+              <WaitlistForm />
+            </div>
+          </div>
+        </section>
+      </main>
+      <FooterSection />
+    </div>
   );
 }
