@@ -1,5 +1,5 @@
 export function PricingSection() {
-  const installUrl = "https://github.com/apps/agentura-ci/installations/new";
+  const installUrl = "https://github.com/apps/agenturai-ci/installations/new";
 
   return (
     <section className="px-6 py-20">
