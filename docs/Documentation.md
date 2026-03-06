@@ -7,10 +7,10 @@
 
 ## Current Status
 
-**Active milestone:** 14 — API Key Management
-**Progress:** 13 / 19 milestones complete
-**Last updated:** Milestone 14 implementation started (schema, migration, tRPC router, and dashboard UI scaffold complete)
-**Next action:** Run production/manual API key UX checks (create, one-time reveal, revoke) and validate CLI login flow with generated key
+**Active milestone:** 15 — Landing Page + Waitlist + Pricing
+**Progress:** 14 / 19 milestones complete
+**Last updated:** Milestone 14 completed (API key creation/list/revoke validated in production and CLI login confirmed)
+**Next action:** Begin Milestone 15 and replace `/` with the public marketing landing page + waitlist flow
 
 ---
 
@@ -60,7 +60,7 @@ cd packages/cli && npx tsx src/index.ts run
 | 11 | Web dashboard: project + run views | ✅ Complete | `/dashboard`, project detail, and run detail pages validated end-to-end with expandable suite case rows and compact sparkline trend |
 | 12 | CLI: login + sync | ✅ Complete | `agentura login`, `agentura init`, and `agentura run` implemented with local config storage, YAML/dataset loading, colored output, and validated exit-code behavior |
 | 13 | Production Deployment | ✅ Complete | Production live: web on Vercel (`https://agentura-ci.vercel.app`), worker on Railway, OAuth working, and production PR checks/comments verified |
-| 14 | API Key Management | 🚧 In progress | ApiKey schema + migration created, apiKeys tRPC router wired, and `/dashboard/settings/api-keys` page implemented |
+| 14 | API Key Management | ✅ Complete | API key management shipped end-to-end (create/list/revoke), one-time raw key reveal enforced, and CLI login validated with generated keys |
 | 15 | Landing Page + Waitlist + Pricing | 📋 Planned | Replace `/` with conversion-focused marketing page, pricing, waitlist, and GitHub App CTA |
 | 16 | CLI Auth Flow | 📋 Planned | Build `/cli-auth` page and complete browser-to-terminal API key login handoff |
 | 17 | SDK Package | 📋 Planned | Publish optional `@agentura/sdk` middleware for richer telemetry reporting |
@@ -1133,3 +1133,31 @@ Milestone 13 — inspect Railway startup logs for debug env output and finalize 
 
 **Next session:**
 Milestone 14 — implement API key creation/list/revocation and wire CLI auth flow end-to-end
+
+## Session — 2026-03-06 01:05 UTC
+
+**Milestone:** 14 — API Key Management
+**Status:** COMPLETE
+
+**Files created:**
+- None
+
+**Files modified:**
+- `docs/Documentation.md` — marked Milestone 14 complete in Current Status + Milestone table and appended this completion handoff
+
+**Decisions made:**
+- `/cli-auth` remaining as 404 is expected and intentionally deferred to Milestone 16 (CLI Auth Flow).
+
+**Validation results:**
+- Manual E2E validation for Milestone 14: PASS
+  - `/dashboard/settings/api-keys` loads
+  - Create key shows raw `agt_` key once with copy button
+  - Key appears in table with prefix after dismiss
+  - Revoke removes key from table
+  - CLI login accepts pasted key and saves to `~/.agentura/config.json`
+
+**Issues found:**
+- None
+
+**Next session:**
+Milestone 15 — Landing Page + Waitlist + Pricing
