@@ -100,7 +100,7 @@ const evalSuiteSchema = z.discriminatedUnion("type", [
 
 const ciSchema = z.object({
   block_on_regression: z.boolean(),
-  regression_threshold: z.number().min(0).max(1),
+  regression_threshold: z.number().min(0).max(1).optional().default(0.05),
   compare_to: z.string().min(1),
   post_comment: z.boolean(),
   fail_on_new_suite: z.boolean(),
