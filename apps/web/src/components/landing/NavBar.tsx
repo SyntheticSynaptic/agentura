@@ -18,6 +18,9 @@ export function NavBar() {
           >
             GitHub
           </a>
+          <Link href="/docs" className="text-slate-300 transition hover:text-white">
+            Docs
+          </Link>
           <Link href="/dashboard" className="text-slate-300 transition hover:text-white">
             Dashboard
           </Link>
