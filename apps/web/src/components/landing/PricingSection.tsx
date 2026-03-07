@@ -1,12 +1,20 @@
+import { CheckoutButton } from "./CheckoutButton";
+
 export function PricingSection() {
   const installUrl = "https://github.com/apps/agenturaci/installations/new";
+  const indiePriceId =
+    process.env.NEXT_PUBLIC_STRIPE_INDIE_PRICE_ID ??
+    process.env.STRIPE_INDIE_PRICE_ID ??
+    "";
+  const proPriceId =
+    process.env.NEXT_PUBLIC_STRIPE_PRO_PRICE_ID ??
+    process.env.STRIPE_PRO_PRICE_ID ??
+    "";
 
   return (
     <section className="px-6 py-20">
       <div className="mx-auto w-full max-w-6xl">
-        <h2 className="text-center text-3xl font-semibold tracking-tight text-white">
-          Simple, honest pricing
-        </h2>
+        <h2 className="text-center text-3xl font-semibold tracking-tight text-white">Pricing</h2>
         <p className="mt-3 text-center text-slate-300">Start free. Upgrade when you&apos;re ready.</p>
 
         <div className="mt-10 grid gap-4 lg:grid-cols-3">
@@ -34,7 +42,7 @@ export function PricingSection() {
 
           <article className="rounded-xl border border-slate-700 bg-slate-900/80 p-7">
             <h3 className="text-xl font-semibold text-white">Indie</h3>
-            <p className="mt-2 text-4xl font-bold text-white">$19 / month</p>
+            <p className="mt-2 text-4xl font-bold text-white">$20 / month</p>
             <p className="mt-2 text-sm text-slate-200">Solo production use</p>
             <ul className="mt-5 space-y-2 text-sm text-slate-100">
               <li>✓ 5 repositories</li>
@@ -43,12 +51,20 @@ export function PricingSection() {
               <li>✓ Email support</li>
               <li>✓ Early access to new features</li>
             </ul>
-            <a
-              href="#waitlist"
-              className="mt-6 inline-flex rounded-md border border-slate-500 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:border-slate-300 hover:text-white"
-            >
-              Join Waitlist
-            </a>
+            {indiePriceId ? (
+              <CheckoutButton
+                priceId={indiePriceId}
+                label="Get Started →"
+                className="mt-6 inline-flex rounded-md border border-slate-500 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:border-slate-300 hover:text-white"
+              />
+            ) : (
+              <a
+                href="#waitlist"
+                className="mt-6 inline-flex rounded-md border border-slate-500 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:border-slate-300 hover:text-white"
+              >
+                Join Waitlist
+              </a>
+            )}
           </article>
 
           <article className="rounded-xl border border-violet-500 bg-gradient-to-b from-violet-950/60 to-slate-900 p-7 shadow-[0_8px_30px_rgba(139,92,246,0.25)]">
@@ -66,12 +82,20 @@ export function PricingSection() {
               <li>✓ Merge blocking policies</li>
               <li>✓ Audit logs</li>
             </ul>
-            <a
-              href="#waitlist"
-              className="mt-6 inline-flex rounded-md bg-violet-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-violet-400"
-            >
-              Join Waitlist
-            </a>
+            {proPriceId ? (
+              <CheckoutButton
+                priceId={proPriceId}
+                label="Get Started →"
+                className="mt-6 inline-flex rounded-md bg-violet-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-violet-400"
+              />
+            ) : (
+              <a
+                href="#waitlist"
+                className="mt-6 inline-flex rounded-md bg-violet-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-violet-400"
+              >
+                Join Waitlist
+              </a>
+            )}
           </article>
         </div>
       </div>

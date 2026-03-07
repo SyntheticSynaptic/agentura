@@ -13,6 +13,7 @@
     "@octokit/app": "^16.1.2",
     "@octokit/webhooks": "^14.2.0",
     "@prisma/nextjs-monorepo-workaround-plugin": "^7.4.2",
+    "@stripe/stripe-js": "^8.9.0",
     "@supabase/ssr": "^0.9.0",
     "@tanstack/react-query": "^5.90.21",
     "@trpc/client": "^11.11.0",
@@ -25,6 +26,7 @@
     "next": "^14.2.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "stripe": "^20.4.1",
     "superjson": "^2.2.6",
     "zod": "^4.3.6"
   },

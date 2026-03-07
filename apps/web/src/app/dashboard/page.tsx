@@ -29,12 +29,15 @@ export default async function DashboardPage() {
       <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
         Welcome, @{me.githubLogin}
       </h1>
-      <div className="mt-1">
+      <div className="mt-1 flex items-center gap-4">
         <Link
           href="/dashboard/settings/api-keys"
           className="text-sm font-medium text-slate-700 underline"
         >
           API Keys
+        </Link>
+        <Link href="/dashboard/billing" className="text-sm font-medium text-slate-700 underline">
+          Billing
         </Link>
       </div>
 

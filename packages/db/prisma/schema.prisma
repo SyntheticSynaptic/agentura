@@ -10,16 +10,22 @@ datasource db {
 }
 
 model User {
-  id            String         @id @default(uuid())
-  githubId      String         @unique
-  githubLogin   String
-  email         String?
-  avatarUrl     String?
-  apiKey        String?        @unique // hashed, for CLI auth
-  createdAt     DateTime       @default(now())
-  installations Installation[]
-  projects      Project[]
-  apiKeys       ApiKey[]
+  id                   String         @id @default(uuid())
+  githubId             String         @unique
+  githubLogin          String
+  email                String?
+  avatarUrl            String?
+  apiKey               String?        @unique // hashed, for CLI auth
+  stripeCustomerId     String?        @unique
+  stripePriceId        String?
+  stripeSubscriptionId String?        @unique
+  subscriptionStatus   String? // active | canceled | past_due
+  plan                 String         @default("free")
+  currentPeriodEnd     DateTime?
+  createdAt            DateTime       @default(now())
+  installations        Installation[]
+  projects             Project[]
+  apiKeys              ApiKey[]
 }
 
 model Installation {
