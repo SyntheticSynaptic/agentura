@@ -3,8 +3,9 @@ import { homedir } from "node:os";
 import path from "node:path";
 
 export interface CliConfig {
-  apiKey: string;
-  baseUrl: string;
+  apiKey?: string;
+  baseUrl?: string;
+  groqApiKey?: string;
 }
 
 const CONFIG_DIR = path.join(homedir(), ".agentura");
@@ -19,35 +20,47 @@ export function getDefaultBaseUrl(): string {
   return "https://agentura-ci.vercel.app";
 }
 
-export async function loadConfig(): Promise<CliConfig | null> {
+async function readConfigRecord(): Promise<Record<string, unknown>> {
   try {
     const raw = await fs.readFile(CONFIG_PATH, "utf-8");
     const parsed: unknown = JSON.parse(raw);
 
     if (!parsed || typeof parsed !== "object") {
-      return null;
+      return {};
     }
 
-    const record = parsed as Record<string, unknown>;
-    const apiKey = typeof record.apiKey === "string" ? record.apiKey : null;
-    const baseUrl = typeof record.baseUrl === "string" ? record.baseUrl : null;
-
-    if (!apiKey || !baseUrl) {
-      return null;
-    }
-
-    return { apiKey, baseUrl };
+    return parsed as Record<string, unknown>;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-      return null;
+      return {};
     }
     throw error;
   }
 }
 
+export async function loadConfig(): Promise<CliConfig | null> {
+  const record = await readConfigRecord();
+
+  const apiKey = typeof record.apiKey === "string" && record.apiKey.trim() ? record.apiKey : undefined;
+  const baseUrl = typeof record.baseUrl === "string" && record.baseUrl.trim() ? record.baseUrl : undefined;
+  const groqApiKey =
+    typeof record.groqApiKey === "string" && record.groqApiKey.trim()
+      ? record.groqApiKey
+      : undefined;
+
+  if (!apiKey && !baseUrl && !groqApiKey) {
+    return null;
+  }
+
+  return { apiKey, baseUrl, groqApiKey };
+}
+
 export async function saveConfig(config: CliConfig): Promise<void> {
+  const existing = await readConfigRecord();
+  const nextConfig = { ...existing, ...config };
+
   await fs.mkdir(CONFIG_DIR, { recursive: true });
-  await fs.writeFile(CONFIG_PATH, `${JSON.stringify(config, null, 2)}\n`, "utf-8");
+  await fs.writeFile(CONFIG_PATH, `${JSON.stringify(nextConfig, null, 2)}\n`, "utf-8");
 }
 
 export async function getApiKey(): Promise<string | null> {

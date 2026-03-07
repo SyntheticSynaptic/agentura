@@ -1,15 +1,6 @@
-import { promises as fs } from "node:fs";
-import path from "node:path";
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
-import { getConfigPath } from "./config";
-
-interface StoredCliConfig {
-  apiKey?: string;
-  baseUrl?: string;
-  groqApiKey?: string;
-  [key: string]: unknown;
-}
+import { loadConfig, saveConfig } from "./config";
 
 interface GroqMessage {
   content: string | null | Array<{ text?: string }>;
@@ -41,30 +32,12 @@ function importModule(specifier: string): Promise<unknown> {
   return importer(specifier);
 }
 
-async function readStoredCliConfig(): Promise<StoredCliConfig> {
-  const configPath = getConfigPath();
-  try {
-    const raw = await fs.readFile(configPath, "utf-8");
-    const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== "object") {
-      return {};
-    }
-    return parsed as StoredCliConfig;
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-      return {};
-    }
-    throw error;
-  }
-}
-
 async function saveGroqApiKey(apiKey: string): Promise<void> {
-  const configPath = getConfigPath();
-  const config = await readStoredCliConfig();
-  config.groqApiKey = apiKey;
-
-  await fs.mkdir(path.dirname(configPath), { recursive: true });
-  await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, "utf-8");
+  const existingConfig = await loadConfig();
+  await saveConfig({
+    ...(existingConfig ?? {}),
+    groqApiKey: apiKey,
+  });
 }
 
 async function promptForGroqApiKey(): Promise<string | null> {
@@ -85,9 +58,10 @@ async function getGroqApiKey(): Promise<string | null> {
     return fromEnv;
   }
 
-  const config = await readStoredCliConfig();
-  if (typeof config.groqApiKey === "string" && config.groqApiKey.trim()) {
-    return config.groqApiKey.trim();
+  const config = await loadConfig();
+  const fromConfig = config?.groqApiKey?.trim();
+  if (fromConfig) {
+    return fromConfig;
   }
 
   const entered = await promptForGroqApiKey();
