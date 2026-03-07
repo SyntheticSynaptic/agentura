@@ -200,15 +200,28 @@ Requirements:
 - Cover happy path cases (normal usage)
 - Cover edge cases (ambiguous queries, unusual requests)
 - Cover failure modes (things the agent should handle gracefully)
-- Expected values must be a specific phrase or fact
-  that should appear in a correct response — not a
-  topic label. Examples:
-  BAD:  {"input": "what does it cost?", "expected": "pricing info"}
-  GOOD: {"input": "what does it cost?", "expected": "19"}
-  BAD:  {"input": "what features exist?", "expected": "feature list"}
-  GOOD: {"input": "what features exist?", "expected": "task tracking"}
-- Expected values should be 1-4 words that a correct
-  answer would always contain.
+- CRITICAL RULES FOR EXPECTED VALUES:
+- Expected must be a single specific fact from the
+  response — a number, a product name, or a 1-3 word
+  feature name
+- The contains scorer will check if this exact string
+  appears anywhere in the agent's response
+- NEVER use topic labels or category names as expected values
+
+GOOD examples (specific facts that will appear verbatim):
+{"input": "what does the pro plan cost?", "expected": "$19"}
+{"input": "how many projects on free plan?", "expected": "1 project"}
+{"input": "do you have time tracking?", "expected": "time tracking"}
+{"input": "what integrations exist?", "expected": "Slack"}
+{"input": "how do I reset my password?", "expected": "password"}
+
+BAD examples (topic labels that will never appear verbatim):
+{"input": "what does it cost?", "expected": "pricing info"}
+{"input": "what features exist?", "expected": "Acme features"}
+{"input": "can you help me?", "expected": "customer support"}
+
+The expected value must be a string that would literally
+appear word-for-word in a correct response.
 - Do NOT include any explanation, markdown, or extra text
 - Output ONLY valid JSONL — one JSON object per line
 - No trailing commas, no arrays, no code fences
@@ -389,7 +402,7 @@ evals:
   - name: accuracy
     type: golden_dataset
     dataset: ./evals/accuracy.jsonl
-    scorer: semantic_similarity
+    scorer: contains
     threshold: 0.8
   - name: quality
     type: llm_judge
@@ -537,8 +550,9 @@ export async function generateCommand(options: GenerateCommandOptions = {}): Pro
     console.log("  2. Run 'agentura run' to test locally");
     console.log("  3. Push to GitHub — evals run automatically on every PR");
     console.log("");
-    console.log("Tip: Switch to 'contains' scorer for faster local runs");
-    console.log("     without API calls. Edit agentura.yaml to change.");
+    console.log("Tip: golden_dataset uses 'contains' to check specific");
+    console.log("     facts. llm_judge uses AI to score overall quality.");
+    console.log("     Both run on every PR automatically.");
   } catch (error) {
     const message = error instanceof Error ? error.message : "generate failed";
 
