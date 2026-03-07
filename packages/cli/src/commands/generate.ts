@@ -382,7 +382,7 @@ evals:
   - name: accuracy
     type: golden_dataset
     dataset: ./evals/accuracy.jsonl
-    scorer: fuzzy
+    scorer: semantic_similarity
     threshold: 0.8
   - name: quality
     type: llm_judge
@@ -528,8 +528,8 @@ export async function generateCommand(options: GenerateCommandOptions = {}): Pro
     console.log("  2. Run 'agentura run' to test locally");
     console.log("  3. Push to GitHub — evals run automatically on every PR");
     console.log("");
-    console.log("Tip: Switch to 'exact_match' scorer if you need strict");
-    console.log("     answer checking. Edit agentura.yaml to change.");
+    console.log("Tip: Switch to 'contains' scorer for faster local runs");
+    console.log("     without API calls. Edit agentura.yaml to change.");
   } catch (error) {
     const message = error instanceof Error ? error.message : "generate failed";
 
