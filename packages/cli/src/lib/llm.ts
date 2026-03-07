@@ -1,0 +1,153 @@
+import { promises as fs } from "node:fs";
+import path from "node:path";
+import { createInterface } from "node:readline/promises";
+import { stdin as input, stdout as output } from "node:process";
+import { getConfigPath } from "./config";
+
+interface StoredCliConfig {
+  apiKey?: string;
+  baseUrl?: string;
+  groqApiKey?: string;
+  [key: string]: unknown;
+}
+
+interface GroqMessage {
+  content: string | null | Array<{ text?: string }>;
+}
+
+interface GroqCompletionResponse {
+  choices?: Array<{ message?: GroqMessage }>;
+}
+
+interface GroqClient {
+  chat: {
+    completions: {
+      create: (params: {
+        model: string;
+        max_tokens: number;
+        temperature: number;
+        messages: Array<{ role: "system" | "user"; content: string }>;
+      }) => Promise<GroqCompletionResponse>;
+    };
+  };
+}
+
+type GroqConstructor = new (options: { apiKey: string }) => GroqClient;
+
+function importModule(specifier: string): Promise<unknown> {
+  const importer = Function("specifier", "return import(specifier)") as (
+    value: string
+  ) => Promise<unknown>;
+  return importer(specifier);
+}
+
+async function readStoredCliConfig(): Promise<StoredCliConfig> {
+  const configPath = getConfigPath();
+  try {
+    const raw = await fs.readFile(configPath, "utf-8");
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object") {
+      return {};
+    }
+    return parsed as StoredCliConfig;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return {};
+    }
+    throw error;
+  }
+}
+
+async function saveGroqApiKey(apiKey: string): Promise<void> {
+  const configPath = getConfigPath();
+  const config = await readStoredCliConfig();
+  config.groqApiKey = apiKey;
+
+  await fs.mkdir(path.dirname(configPath), { recursive: true });
+  await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, "utf-8");
+}
+
+async function promptForGroqApiKey(): Promise<string | null> {
+  const rl = createInterface({ input, output });
+  try {
+    const answer = (
+      await rl.question("Enter your Groq API key (free at console.groq.com): ")
+    ).trim();
+    return answer || null;
+  } finally {
+    rl.close();
+  }
+}
+
+async function getGroqApiKey(): Promise<string | null> {
+  const fromEnv = process.env.GROQ_API_KEY?.trim();
+  if (fromEnv) {
+    return fromEnv;
+  }
+
+  const config = await readStoredCliConfig();
+  if (typeof config.groqApiKey === "string" && config.groqApiKey.trim()) {
+    return config.groqApiKey.trim();
+  }
+
+  const entered = await promptForGroqApiKey();
+  if (!entered) {
+    return null;
+  }
+
+  await saveGroqApiKey(entered);
+  return entered;
+}
+
+function extractText(response: GroqCompletionResponse): string {
+  const content = response.choices?.[0]?.message?.content;
+  if (typeof content === "string") {
+    return content.trim();
+  }
+
+  if (Array.isArray(content)) {
+    const text = content
+      .map((part) => (typeof part.text === "string" ? part.text : ""))
+      .join("")
+      .trim();
+    return text;
+  }
+
+  return "";
+}
+
+export async function callLLM(prompt: string): Promise<string> {
+  const apiKey = await getGroqApiKey();
+  if (!apiKey) {
+    throw new Error(
+      "No Groq API key found. Set GROQ_API_KEY or run agentura generate and enter it when prompted."
+    );
+  }
+
+  try {
+    const moduleNamespace = (await importModule("groq-sdk")) as { default?: GroqConstructor };
+    const Groq = moduleNamespace.default;
+
+    if (!Groq) {
+      throw new Error("groq-sdk default export was not found");
+    }
+
+    const client = new Groq({ apiKey });
+    const response = await client.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      max_tokens: 4000,
+      temperature: 0.7,
+      messages: [{ role: "user", content: prompt }],
+    });
+
+    const text = extractText(response);
+    if (!text) {
+      throw new Error("received empty response from LLM");
+    }
+
+    return text;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown Groq API error";
+    throw new Error(`LLM call failed: ${message}`);
+  }
+}

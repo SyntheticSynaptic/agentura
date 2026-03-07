@@ -120,7 +120,7 @@ agentura/
 | 15 — Landing Page + Waitlist + Pricing | 📋 Planned | — |
 | 16 — CLI Auth Flow | 📋 Planned | — |
 | 17 — SDK Package | 📋 Planned | — |
-| 18 — Documentation + Onboarding | 📋 Planned | — |
+| 18 — CLI: agentura generate | 🚧 In Progress | 2026-03-06 |
 | 19 — Dashboard Polish + Settings | 📋 Planned | — |
 
 ---
@@ -937,20 +937,21 @@ Status: PLANNED 📋
 
 ---
 
-MILESTONE 18: Documentation + Onboarding
-Goal: Self-serve docs so customers can go from zero to first 
-check run without asking for help.
+MILESTONE 18: CLI Generate Command
+Goal: Reduce onboarding friction by generating realistic eval datasets and a quality rubric from a plain-English agent description in under 2 minutes.
 
 Tasks:
-- /docs route in web app (or docs.agentura.dev subdomain)
-- Quick start guide (target: 5 minutes to first check run)
-- agentura.yaml full config reference
-- Eval strategy guides (golden_dataset, llm_judge, performance)
-- Troubleshooting guide (common errors and fixes)
-- Update GitHub repo README.md with badges and quick start
-- Add CONTRIBUTING.md for open source contributors
+- Add `agentura generate` to the CLI as the primary onboarding command
+- Prompt for agent description (or accept `--description` flag)
+- Optionally probe the live agent endpoint to improve generated coverage
+- Generate `evals/accuracy.jsonl` JSONL test cases with realistic inputs + expected values
+- Generate `evals/quality-rubric.md` for `llm_judge`
+- Create `evals/quality.jsonl` from the same generated cases
+- Offer one-click update of `agentura.yaml` from default single suite to 3 strategies
+- Handle malformed LLM output with one strict retry and clear fallback guidance
+- Store/reuse `GROQ_API_KEY` for generation flow
 
-Status: PLANNED 📋
+Status: IN PROGRESS 🚧
 
 ---
 

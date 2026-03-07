@@ -7,10 +7,10 @@
 
 ## Current Status
 
-**Active milestone:** 18 — SDK Package
+**Active milestone:** 18 — CLI: agentura generate
 **Progress:** 17 / 19 milestones complete
-**Last updated:** Waitlist signups now persist in Supabase via Prisma (`WaitlistEntry`) with `/api/waitlist` upsert and validated server-side input
-**Next action:** Begin Milestone 18 — design and publish `@agentura/sdk` middleware for richer telemetry reporting
+**Last updated:** Added CLI scaffolding for `agentura generate` with Groq-backed dataset/rubric generation, optional endpoint probing, and YAML auto-expansion flow
+**Next action:** Run manual Milestone 18 E2E checks (`generate` basic flow, flag-driven flow, and missing-config failure path)
 
 ---
 
@@ -64,7 +64,7 @@ cd packages/cli && npx tsx src/index.ts run
 | 15 | Landing Page + Waitlist + Pricing | ✅ Complete | Public landing page shipped with hero, social proof, PR comment mockup, feature grid, 3-tier pricing, and waitlist submission endpoint |
 | 16 | CLI Auth Flow | ✅ Complete | Browser auth flow validated end-to-end, CLI key saved to `~/.agentura/config.json`, and token exchange persistence moved from in-memory storage to Prisma for serverless reliability |
 | 17 | Documentation + Onboarding | ✅ Complete | README rewritten, quickstart/config/strategy docs added, and dashboard empty-state CTA directs new users to first-run setup |
-| 18 | SDK Package | 📋 Planned | Publish optional `@agentura/sdk` middleware for richer telemetry reporting |
+| 18 | CLI: agentura generate | 🚧 In Progress | New command implemented in CLI with LLM-powered JSONL/rubric generation, probe option, overwrite guards, and command wiring pending manual validation |
 | 19 | Dashboard Polish + Settings | 📋 Planned | Improve settings UX, pagination, mobile responsiveness, and health/status page |
 
 ---
@@ -1314,6 +1314,40 @@ Milestone 17 — SDK Package
 
 **Next session:**
 Milestone 18 — SDK Package
+
+## Session — 2026-03-06 10:20 UTC
+
+**Milestone:** 18 — CLI: agentura generate
+**Status:** IN PROGRESS
+
+**Files created:**
+- `packages/cli/src/lib/llm.ts` — Groq-backed LLM helper with API-key resolution (`GROQ_API_KEY` env first, then persisted config prompt flow), dynamic ESM import, and normalized response extraction
+- `packages/cli/src/commands/generate.ts` — full `agentura generate` command (description prompt/flag, optional probe, dataset+rubric generation, JSONL parsing/retry, overwrite guards, optional YAML expansion, and success summary output)
+
+**Files modified:**
+- `packages/cli/src/index.ts` — added `generate` as a first-class command, wired options (`--description`, `--no-probe`, `--count`), and updated CLI description/help text ordering
+- `packages/cli/package.json` — added direct `groq-sdk` dependency for CLI-side generation
+- `docs/Plan.md` — roadmap updated to reflect Milestone 18 as `CLI: agentura generate` and marked as in progress
+- `docs/Documentation.md` — updated current status/milestone table and appended this session entry
+
+**Decisions made:**
+- Kept generation resilient by accepting partially valid LLM output only when at least 5 valid JSONL rows parse, with one strict retry before failing.
+- Preserved safety on existing datasets with overwrite prompts (default NO), while allowing non-interactive flow when using `--description` + `--no-probe`.
+- Added optional agent probing but treated endpoint failures as non-fatal to keep onboarding unblocked.
+
+**Validation results:**
+- `pnpm run type-check`: PASS
+- `pnpm run build`: PASS
+- `node packages/cli/dist/index.js --help`: PASS (`generate` command appears with expected description/options)
+
+**Issues found:**
+- Local `pnpm install` attempted to reach npm registry (`ENOTFOUND registry.npmjs.org`) in this environment; no lockfile changes were required for this session.
+
+**Next session:**
+Milestone 18 — run manual E2E checks for:
+1. `generate` basic interactive flow (`/tmp/test-generate`, no probe)
+2. `generate --description ... --no-probe` non-interactive flow
+3. Missing `agentura.yaml` error path (exit code 1)
 
 ## Session — 2026-03-06 07:45 UTC
 
