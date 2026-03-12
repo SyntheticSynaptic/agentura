@@ -1406,3 +1406,94 @@ All use: `https://github.com/apps/agenturaci/installations/new`.
 **Notes:**
 - CLI publish is prepared in code, but actual publish remains a human step (`npm login` + `npm publish` in `packages/cli`).
 - Repo-limit enforcement defaults safely when billing columns are not migrated yet, preventing worker crashes in partially migrated environments.
+
+## Session — 2026-03-09 14:08 UTC
+
+**Milestone:** 15 — Landing Page + Waitlist + Pricing (Redesign refresh)
+**Status:** COMPLETE
+
+**Files created:**
+- None
+
+**Files modified:**
+- `apps/web/src/app/layout.tsx` — added Google Fonts link and fixed grain overlay
+- `apps/web/src/app/globals.css` — added landing color tokens, font vars, and dark base body styling
+- `apps/web/src/app/page.tsx` — replaced landing page with full 9-section redesign and interactive demos (`PRDemoWidget`, `TerminalDemo`, `GenerateTerminalWidget`)
+- `docs/Documentation.md` — appended this session handoff
+
+**Files removed:**
+- `apps/web/src/components/landing/FeaturesSection.tsx`
+- `apps/web/src/components/landing/FooterSection.tsx`
+- `apps/web/src/components/landing/HeroSection.tsx`
+- `apps/web/src/components/landing/HowItWorksSection.tsx`
+- `apps/web/src/components/landing/NavBar.tsx`
+- `apps/web/src/components/landing/PricingSection.tsx`
+- `apps/web/src/components/landing/PrCommentMockupSection.tsx`
+- `apps/web/src/components/landing/ScenariosSection.tsx`
+- `apps/web/src/components/landing/SocialProofBar.tsx`
+- `apps/web/src/components/landing/WaitlistForm.tsx`
+- `apps/web/src/components/landing/WhyNotDIYSection.tsx`
+
+**Decisions made:**
+- Preserved `apps/web/src/components/landing/CheckoutButton.tsx` to avoid breaking dashboard billing import paths.
+- Implemented reference animation timing/patterns for PR and terminal widgets while keeping section copy/content locked to redesign spec.
+
+**Validation results:**
+- `git pull --rebase origin main`: PASS
+- `pnpm run build`: PASS (non-blocking warnings: Google Fonts stylesheet optimization skipped in offline build context; Upstash DNS lookup errors from existing environment)
+- `pnpm run type-check`: PASS
+- Browser checks (Playwright): PASS
+  - Body font DM Mono, heading font Syne
+  - No Inter/Roboto/system-ui fonts within `.landing-root`
+  - `--bg` is `#0a0a0b`, `--amber` is `#f0a500`
+  - Button border-radius is `0px`
+  - Mobile viewport (375px) has no horizontal overflow (`scrollWidth === innerWidth`)
+  - Nav links hidden on mobile and all required grids collapse to single column at 768px
+
+**Issues found:**
+- Root `pnpm run type-check` failed once while `.next/types` files were missing during parallel verification execution; rerunning after build generation passed.
+
+**Next session:**
+Milestone 18 — run manual `agentura generate` E2E checks and finalize milestone status updates.
+
+## Session — 2026-03-12 07:00 UTC
+
+**Milestone:** 15 — Landing Page + Waitlist + Pricing (Aesthetic redesign)
+**Status:** COMPLETE
+
+**Files created:**
+- None
+
+**Files modified:**
+- `apps/web/src/app/layout.tsx` — switched landing typography to Sora + IBM Plex Sans + JetBrains Mono
+- `apps/web/src/app/globals.css` — updated visual tokens and font variables for premium dark theme system
+- `apps/web/src/app/page.tsx` — rebuilt landing from scratch with narrative-first layout, interactive tabs, live demo widgets, and open-source positioning (pricing removed)
+- `docs/Documentation.md` — appended this handoff entry
+
+**Files removed:**
+- `apps/web/src/components/landing/FeaturesSection.tsx`
+- `apps/web/src/components/landing/FooterSection.tsx`
+- `apps/web/src/components/landing/HeroSection.tsx`
+- `apps/web/src/components/landing/HowItWorksSection.tsx`
+- `apps/web/src/components/landing/NavBar.tsx`
+- `apps/web/src/components/landing/PricingSection.tsx`
+- `apps/web/src/components/landing/PrCommentMockupSection.tsx`
+- `apps/web/src/components/landing/ScenariosSection.tsx`
+- `apps/web/src/components/landing/SocialProofBar.tsx`
+- `apps/web/src/components/landing/WaitlistForm.tsx`
+- `apps/web/src/components/landing/WhyNotDIYSection.tsx`
+
+**Decisions made:**
+- Removed pricing section from the primary landing narrative because the product is now open source.
+- Shifted from static section marketing to story-driven reliability demos (live PR board, scenario tabs, comparison matrix, terminal playback).
+- Preserved `apps/web/src/components/landing/CheckoutButton.tsx` because dashboard billing imports it directly.
+
+**Validation results:**
+- `pnpm --filter @agentura/web run type-check`: PASS
+- `pnpm --filter @agentura/web run build`: PASS (non-blocking font optimization warning in offline context, existing Upstash DNS warnings in this environment)
+
+**Issues found:**
+- Build emits environment-specific Upstash DNS lookup warnings unrelated to landing-page code changes.
+
+**Next session:**
+Milestone 18 — execute manual `agentura generate` E2E checks and close remaining milestone validation items.
