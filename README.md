@@ -43,6 +43,7 @@ Full guide: [docs/quickstart.md](docs/quickstart.md)
 | OpenAI Agents SDK | [examples/openai-agent](examples/openai-agent) |
 | LangChain | [examples/langchain-agent](examples/langchain-agent) |
 | Any HTTP endpoint | [examples/http-agent](examples/http-agent) |
+No SDK Required! 
 
 ## GitHub Actions
 
