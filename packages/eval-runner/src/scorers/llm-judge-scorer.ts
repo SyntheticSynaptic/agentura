@@ -3,9 +3,8 @@ import { GoogleGenAI } from "@google/genai";
 import Groq from "groq-sdk";
 import OpenAI from "openai";
 import {
+  detectOllamaJudgeModel,
   getOllamaBaseUrl,
-  getOllamaJudgeModel,
-  isOllamaReachable,
   type OllamaFetchLike,
 } from "./ollama";
 
@@ -305,16 +304,16 @@ export async function resolveLlmJudgeProvider(
     }
   }
 
-  const ollamaAvailable =
-    typeof options.ollamaAvailable === "boolean"
-      ? options.ollamaAvailable
-      : await isOllamaReachable(env, options.fetchImpl);
+  if (options.ollamaAvailable === false) {
+    return null;
+  }
 
-  if (ollamaAvailable) {
+  const ollamaModel = await detectOllamaJudgeModel(env, options.fetchImpl);
+  if (ollamaModel) {
     return {
       provider: "ollama",
       apiKey: "",
-      model: getOllamaJudgeModel(env),
+      model: ollamaModel,
       baseUrl: getOllamaBaseUrl(env),
     };
   }

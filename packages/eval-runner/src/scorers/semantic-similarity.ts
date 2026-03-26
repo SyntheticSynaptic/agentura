@@ -1,9 +1,8 @@
 import { GoogleGenAI } from "@google/genai";
 import OpenAI from "openai";
 import {
+  detectOllamaEmbeddingModel,
   getOllamaBaseUrl,
-  getOllamaEmbeddingModel,
-  isOllamaReachable,
   resetOllamaTestState,
   type OllamaFetchLike,
 } from "./ollama";
@@ -24,6 +23,8 @@ export interface ResolvedSemanticSimilarityProvider {
 
 export const NO_EMBEDDING_API_KEY_WARNING =
   "semantic_similarity scorer: set ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY, or GROQ_API_KEY, or install Ollama (https://ollama.com) to use embedding-based similarity; falling back to token overlap";
+export const OLLAMA_EMBEDDING_MODEL_WARNING =
+  "semantic_similarity: Ollama is running but no embedding model found. Install one with: ollama pull mxbai-embed-large\nOr set OLLAMA_EMBED_MODEL=your-model-name";
 
 interface OpenAIEmbeddingResponse {
   data?: Array<{
@@ -201,12 +202,18 @@ const EMBEDDING_PROVIDER_PRIORITY: Array<{
 
 const embeddingCache = new Map<string, Promise<number[]>>();
 let missingProviderWarningShown = false;
+let missingOllamaEmbeddingModelWarningShown = false;
 const providerFailureWarningsShown = new Set<SemanticSimilarityProvider>();
 let ollamaSelectionLogShown = false;
 
 export interface SemanticSimilarityResolverOptions {
   fetchImpl?: OllamaFetchLike;
   ollamaAvailable?: boolean;
+}
+
+interface SemanticSimilarityProviderResolution {
+  provider: ResolvedSemanticSimilarityProvider | null;
+  missingOllamaEmbeddingModel: boolean;
 }
 
 function tokenize(text: string): Set<string> {
@@ -397,41 +404,61 @@ async function getCachedEmbedding(
   return embeddingPromise;
 }
 
-export async function resolveSemanticSimilarityProvider(
+async function resolveSemanticSimilarityProviderWithState(
   env: Record<string, string | undefined> = process.env,
   options: SemanticSimilarityResolverOptions = {}
-): Promise<ResolvedSemanticSimilarityProvider | null> {
+): Promise<SemanticSimilarityProviderResolution> {
   for (const candidate of EMBEDDING_PROVIDER_PRIORITY) {
     const apiKey = env[candidate.envVar]?.trim();
     if (apiKey) {
       return {
-        provider: candidate.provider,
-        apiKey,
-        model: candidate.model,
+        provider: {
+          provider: candidate.provider,
+          apiKey,
+          model: candidate.model,
+        },
+        missingOllamaEmbeddingModel: false,
       };
     }
   }
 
-  const ollamaAvailable =
-    typeof options.ollamaAvailable === "boolean"
-      ? options.ollamaAvailable
-      : await isOllamaReachable(env, options.fetchImpl);
-
-  if (ollamaAvailable) {
+  if (options.ollamaAvailable === false) {
     return {
-      provider: "ollama",
-      apiKey: "",
-      model: getOllamaEmbeddingModel(env),
-      baseUrl: getOllamaBaseUrl(env),
+      provider: null,
+      missingOllamaEmbeddingModel: false,
     };
   }
 
-  return null;
+  const ollamaModel = await detectOllamaEmbeddingModel(env, options.fetchImpl);
+  if (ollamaModel) {
+    return {
+      provider: {
+        provider: "ollama",
+        apiKey: "",
+        model: ollamaModel,
+        baseUrl: getOllamaBaseUrl(env),
+      },
+      missingOllamaEmbeddingModel: false,
+    };
+  }
+
+  return {
+    provider: null,
+    missingOllamaEmbeddingModel: ollamaModel === null,
+  };
+}
+
+export async function resolveSemanticSimilarityProvider(
+  env: Record<string, string | undefined> = process.env,
+  options: SemanticSimilarityResolverOptions = {}
+): Promise<ResolvedSemanticSimilarityProvider | null> {
+  return (await resolveSemanticSimilarityProviderWithState(env, options)).provider;
 }
 
 export function resetSemanticSimilarityTestState(): void {
   embeddingCache.clear();
   missingProviderWarningShown = false;
+  missingOllamaEmbeddingModelWarningShown = false;
   providerFailureWarningsShown.clear();
   ollamaSelectionLogShown = false;
   resetOllamaTestState();
@@ -451,9 +478,15 @@ export async function scoreSemanticSimilarity(
     return 0;
   }
 
-  const provider = await resolveSemanticSimilarityProvider(env);
+  const { provider, missingOllamaEmbeddingModel } =
+    await resolveSemanticSimilarityProviderWithState(env);
   if (!provider) {
-    if (!missingProviderWarningShown) {
+    if (missingOllamaEmbeddingModel) {
+      if (!missingOllamaEmbeddingModelWarningShown) {
+        console.warn(OLLAMA_EMBEDDING_MODEL_WARNING);
+        missingOllamaEmbeddingModelWarningShown = true;
+      }
+    } else if (!missingProviderWarningShown) {
       console.warn(NO_EMBEDDING_API_KEY_WARNING);
       missingProviderWarningShown = true;
     }

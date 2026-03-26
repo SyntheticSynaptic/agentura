@@ -14,10 +14,17 @@ Install Ollama:
 brew install ollama
 ```
 
-Pull the default judge and embedding models:
+Agentura auto-detects installed Ollama models. To use semantic similarity without an API key, install any embedding model:
 
 ```bash
-ollama pull llama3.2 && ollama pull nomic-embed-text
+ollama pull mxbai-embed-large    # recommended
+ollama pull nomic-embed-text     # alternative
+ollama pull qwen3-embedding      # high quality, larger
 ```
 
-Agentura auto-detects Ollama when it is running.
+To use a specific model, set the env var:
+
+```bash
+OLLAMA_EMBED_MODEL=your-model-name
+OLLAMA_MODEL=your-judge-model
+```

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { resetOllamaTestState } from "./ollama";
 import {
   NO_LLM_JUDGE_API_KEY_WARNING,
   formatLlmJudgeProviderLogMessage,
@@ -91,6 +92,16 @@ function createClientFactories(
   };
 }
 
+function createTagsFetch(modelNames: string[]): typeof fetch {
+  return (async () =>
+    ({
+      status: 200,
+      json: async () => ({
+        models: modelNames.map((name) => ({ name })),
+      }),
+    }) as Response) as typeof fetch;
+}
+
 function createJudge(
   provider: ResolvedLlmJudgeProvider["provider"],
   model: string
@@ -103,12 +114,14 @@ function createJudge(
 }
 
 test("resolveLlmJudgeProvider prioritizes anthropic over other provider keys", async () => {
+  resetOllamaTestState();
+
   const judge = await resolveLlmJudgeProvider(
     {
-    ANTHROPIC_API_KEY: "anthropic-key",
-    OPENAI_API_KEY: "openai-key",
-    GEMINI_API_KEY: "gemini-key",
-    GROQ_API_KEY: "groq-key",
+      ANTHROPIC_API_KEY: "anthropic-key",
+      OPENAI_API_KEY: "openai-key",
+      GEMINI_API_KEY: "gemini-key",
+      GROQ_API_KEY: "groq-key",
     },
     { ollamaAvailable: true }
   );
@@ -120,25 +133,74 @@ test("resolveLlmJudgeProvider prioritizes anthropic over other provider keys", a
   });
 });
 
-test("resolveLlmJudgeProvider falls back to Ollama when no remote provider key exists", async () => {
+test("resolveLlmJudgeProvider uses OLLAMA_MODEL when no remote provider key exists", async () => {
+  resetOllamaTestState();
+
   const judge = await resolveLlmJudgeProvider(
     {
-      OLLAMA_MODEL: "llama3.2",
+      OLLAMA_MODEL: "qwen2.5-coder:7b",
       OLLAMA_BASE_URL: "http://localhost:11434",
-    },
-    { ollamaAvailable: true }
+    }
   );
 
   assert.deepEqual(judge, {
     provider: "ollama",
     apiKey: "",
-    model: "llama3.2",
+    model: "qwen2.5-coder:7b",
     baseUrl: "http://localhost:11434",
   });
-  assert.equal(formatLlmJudgeProviderLogMessage(judge), "llm_judge: using ollama (llama3.2) [local]");
+  assert.equal(
+    formatLlmJudgeProviderLogMessage(judge),
+    "llm_judge: using ollama (qwen2.5-coder:7b) [local]"
+  );
+});
+
+test("resolveLlmJudgeProvider auto-detects the first installed local judge model", async () => {
+  resetOllamaTestState();
+
+  const judge = await resolveLlmJudgeProvider(
+    {
+      OLLAMA_BASE_URL: "http://localhost:11434",
+    },
+    {
+      fetchImpl: createTagsFetch([
+        "mxbai-embed-large:latest",
+        "llama3.2:cloud",
+        "qwen2.5:latest",
+      ]),
+    }
+  );
+
+  assert.deepEqual(judge, {
+    provider: "ollama",
+    apiKey: "",
+    model: "qwen2.5:latest",
+    baseUrl: "http://localhost:11434",
+  });
+});
+
+test("resolveLlmJudgeProvider returns null when Ollama has no usable local judge model", async () => {
+  resetOllamaTestState();
+
+  const judge = await resolveLlmJudgeProvider(
+    {
+      OLLAMA_BASE_URL: "http://localhost:11434",
+    },
+    {
+      fetchImpl: createTagsFetch([
+        "mxbai-embed-large:latest",
+        "nomic-embed-text",
+        "llama3.2:cloud",
+      ]),
+    }
+  );
+
+  assert.equal(judge, null);
 });
 
 test("resolveLlmJudgeProvider returns null and keeps the exact warning text when no provider exists", async () => {
+  resetOllamaTestState();
+
   assert.equal(await resolveLlmJudgeProvider({}, { ollamaAvailable: false }), null);
   assert.equal(
     NO_LLM_JUDGE_API_KEY_WARNING,

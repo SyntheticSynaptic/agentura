@@ -4,6 +4,7 @@ import test from "node:test";
 import type { SemanticSimilarityClientFactories } from "./semantic-similarity";
 import {
   NO_EMBEDDING_API_KEY_WARNING,
+  OLLAMA_EMBEDDING_MODEL_WARNING,
   resetSemanticSimilarityTestState,
   resolveSemanticSimilarityProvider,
   scoreSemanticSimilarity,
@@ -19,6 +20,16 @@ function withConsoleWarnings(callback: (warnings: string[]) => Promise<void>): P
   return callback(warnings).finally(() => {
     console.warn = originalWarn;
   });
+}
+
+function createTagsFetch(modelNames: string[]): typeof fetch {
+  return (async () =>
+    ({
+      status: 200,
+      json: async () => ({
+        models: modelNames.map((name) => ({ name })),
+      }),
+    }) as Response) as typeof fetch;
 }
 
 function createClientFactories(
@@ -100,6 +111,44 @@ test("resolveSemanticSimilarityProvider prefers Anthropic over other available p
       provider: "anthropic",
       apiKey: "anthropic-key",
       model: "voyage-3",
+    }
+  );
+});
+
+test("resolveSemanticSimilarityProvider uses OLLAMA_EMBED_MODEL when configured", async () => {
+  resetSemanticSimilarityTestState();
+
+  assert.deepEqual(
+    await resolveSemanticSimilarityProvider({
+      OLLAMA_EMBED_MODEL: "custom-embed-model",
+      OLLAMA_BASE_URL: "http://localhost:11434",
+    }),
+    {
+      provider: "ollama",
+      apiKey: "",
+      model: "custom-embed-model",
+      baseUrl: "http://localhost:11434",
+    }
+  );
+});
+
+test("resolveSemanticSimilarityProvider auto-detects an installed Ollama embedding model", async () => {
+  resetSemanticSimilarityTestState();
+
+  assert.deepEqual(
+    await resolveSemanticSimilarityProvider(
+      {
+        OLLAMA_BASE_URL: "http://localhost:11434",
+      },
+      {
+        fetchImpl: createTagsFetch(["llama3.2", "mxbai-embed-large:latest"]),
+      }
+    ),
+    {
+      provider: "ollama",
+      apiKey: "",
+      model: "mxbai-embed-large:latest",
+      baseUrl: "http://localhost:11434",
     }
   );
 });
@@ -284,7 +333,9 @@ test("scoreSemanticSimilarity logs and uses Ollama when no API key exists and Ol
     ({
       status: 200,
       ok: true,
-      json: async () => ({ models: [] }),
+      json: async () => ({
+        models: [{ name: "mxbai-embed-large:latest" }],
+      }),
     }) as Response;
 
   const factories = createClientFactories(
@@ -314,21 +365,56 @@ test("scoreSemanticSimilarity logs and uses Ollama when no API key exists and Ol
     );
 
     assert.equal(score, 1);
-    assert.deepEqual(logs, ["semantic_similarity: using ollama (nomic-embed-text) [local]"]);
+    assert.deepEqual(logs, ["semantic_similarity: using ollama (mxbai-embed-large:latest) [local]"]);
     assert.deepEqual(calls, [
       {
         provider: "ollama",
         input: "actual",
-        model: "nomic-embed-text",
+        model: "mxbai-embed-large:latest",
       },
       {
         provider: "ollama",
         input: "expected",
-        model: "nomic-embed-text",
+        model: "mxbai-embed-large:latest",
       },
     ]);
   } finally {
     console.log = originalLog;
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("scoreSemanticSimilarity warns once when Ollama is running without an embedding model", async () => {
+  resetSemanticSimilarityTestState();
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () =>
+    ({
+      status: 200,
+      ok: true,
+      json: async () => ({
+        models: [{ name: "llama3.2" }, { name: "qwen2.5:latest" }],
+      }),
+    }) as Response;
+
+  try {
+    await withConsoleWarnings(async (warnings) => {
+      const firstScore = await scoreSemanticSimilarity(
+        "hello world from agentura",
+        "hello world",
+        { OLLAMA_BASE_URL: "http://localhost:11434" }
+      );
+      const secondScore = await scoreSemanticSimilarity(
+        "hello world from agentura",
+        "hello world",
+        { OLLAMA_BASE_URL: "http://localhost:11434" }
+      );
+
+      assert.ok(firstScore > 0 && firstScore < 1);
+      assert.equal(secondScore, firstScore);
+      assert.deepEqual(warnings, [OLLAMA_EMBEDDING_MODEL_WARNING]);
+    });
+  } finally {
     globalThis.fetch = originalFetch;
   }
 });

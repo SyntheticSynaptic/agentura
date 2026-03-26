@@ -2137,3 +2137,35 @@ Milestone 18 — resume the pending `agentura generate` end-to-end validation wo
 
 **Next session:**
 Milestone 18 — run the remaining manual `agentura generate` E2E checks and then advance to Milestone 19 dashboard polish.
+
+## Session — 2026-03-26 22:14 UTC
+
+**Milestone:** 18 — CLI: agentura generate
+**Status:** COMPLETE
+
+**Files created:**
+- None
+
+**Files modified:**
+- `packages/eval-runner/src/scorers/ollama.ts` — replaced hardcoded Ollama defaults with env-first model selection and `/api/tags` auto-detection for judge and embedding models
+- `packages/eval-runner/src/scorers/llm-judge-scorer.ts` — switched Ollama judge resolution to detected installed models and skipped Ollama when only embed or cloud-tagged models are present
+- `packages/eval-runner/src/scorers/semantic-similarity.ts` — switched Ollama embedding resolution to detected installed models and added the explicit warning for “Ollama running but no embedding model installed”
+- `packages/eval-runner/src/scorers/llm-judge-scorer.test.ts` — added coverage for judge-model override, auto-detection, and no-usable-model fallback
+- `packages/eval-runner/src/scorers/semantic-similarity.test.ts` — added coverage for embedding-model override, auto-detection, local logging, and the missing-embedding-model warning path
+- `docs/self-hosting.md` — updated the Ollama section to describe auto-detection and env-var overrides instead of hardcoded model installs
+- `docs/Documentation.md` — appended this session entry
+
+**Decisions made:**
+- Treated `OLLAMA_MODEL` and `OLLAMA_EMBED_MODEL` as authoritative overrides so users can pin local models without depending on tag-order heuristics.
+- Used `/api/tags` model-name inspection for both scorer paths so local Ollama support now adapts to whichever compatible models a developer already has installed.
+- Reserved the explicit missing-model warning for the “Ollama reachable, but no embedding model available” case so generic fallback messaging still covers the broader “no provider configured” path.
+
+**Validation results:**
+- `pnpm type-check`: PASS
+- `pnpm test`: PASS
+
+**Issues found:**
+- None
+
+**Next session:**
+Milestone 18 — run the remaining manual `agentura generate` E2E checks and then advance to Milestone 19 dashboard polish.
