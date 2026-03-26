@@ -115,11 +115,11 @@ agentura/
 | 10 — Baseline comparison + regression detection | ✅ Complete | 2026-03-05 |
 | 11 — Web dashboard | ✅ Complete | 2026-03-05 |
 | 12 — CLI: init + run + login commands | ✅ Complete | 2026-03-05 |
-| 13 — Production Deployment | 📋 Planned | — |
-| 14 — API Key Management | 📋 Planned | — |
-| 15 — Landing Page + Waitlist + Pricing | 📋 Planned | — |
-| 16 — CLI Auth Flow | 📋 Planned | — |
-| 17 — SDK Package | 📋 Planned | — |
+| 13 — Production Deployment | ✅ Complete | 2026-03-05 |
+| 14 — API Key Management | ✅ Complete | 2026-03-06 |
+| 15 — Landing Page + Waitlist + Pricing | ✅ Complete | 2026-03-09 |
+| 16 — CLI Auth Flow | ✅ Complete | 2026-03-06 |
+| 17 — Documentation + Onboarding | ✅ Complete | 2026-03-06 |
 | 18 — CLI: agentura generate | 🚧 In Progress | 2026-03-06 |
 | 19 — Dashboard Polish + Settings | 📋 Planned | — |
 
@@ -921,19 +921,18 @@ Status: PLANNED 📋
 
 ---
 
-MILESTONE 17: SDK Package
-Goal: Optional SDK that agents can use to report richer 
-telemetry (token counts, cost, latency) back to Agentura.
+MILESTONE 17: Documentation + Onboarding
+Goal: Make the repo understandable and usable for new open-source users without requiring hand-holding.
 
 Tasks:
-- Publish @agentura/sdk to npm
-- SDK wraps agent HTTP handler and auto-reports token usage
-- Works with any Node.js HTTP framework (Express, Fastify, Next.js)
-- Zero-config: just wrap your handler with agenturaMiddleware()
-- Without SDK: Agentura still works, just shows estimated costs
-- With SDK: shows actual token counts and costs
+- Rewrite the root README around quick start, configuration, strategies, and examples
+- Add `docs/quickstart.md` with the install → configure → first PR flow
+- Add `docs/agentura-yaml.md` with field-by-field config documentation
+- Add `docs/strategies.md` explaining `golden_dataset`, `llm_judge`, and `performance`
+- Add dashboard empty-state guidance that points users to the first-run setup docs
+- Keep onboarding aligned with the published CLI and `--local` workflow
 
-Status: PLANNED 📋
+Status: COMPLETE ✅
 
 ---
 
@@ -1009,6 +1008,9 @@ agent's performance against the baseline."
 | Feb 2026 | tRPC for dashboard, REST for CLI/GitHub webhook | CLI callers and GitHub webhooks are external — REST is simpler. Internal dashboard uses tRPC for type safety. |
 | Feb 2026 | Store eval scores as Float 0–1, not percentage | Avoids integer rounding errors when comparing scores. Display layer converts to percentage. |
 | Feb 2026 | BullMQ worker on Railway, not Vercel | Evals can run for minutes. Vercel functions time out at 60s max. |
+| Mar 2026 | Local `llm_judge` auto-detects Anthropic, OpenAI, Gemini, then Groq by env key | Keeps `--local` zero-config for the major provider keys already used by developers. |
+| Mar 2026 | Repo CI excludes `@agentura/web` from `pnpm build` | The web app still has a known Prisma build-resolution issue, so CI builds only the stable workspace packages while type-check still covers the whole monorepo. |
+| Mar 2026 | Ship both a root GitHub Action and a nested reusable action | Preserves the simple `uses: SyntheticSynaptic/agentura@main` snippet while still exposing `.github/actions/agentura-eval/action.yml` as a reusable action entrypoint. |
 
 ---
 
@@ -1016,6 +1018,8 @@ agent's performance against the baseline."
 
 - 2026-02-26: Next.js 14 rejects `next.config.ts`; use `next.config.mjs` with `export default` syntax in this repo.
 - 2026-02-26: A CLI scaffold `dev` script that exits immediately causes root `turbo run dev --parallel` to fail even if the web app starts; workspace `dev` scripts must stay alive.
+- 2026-03-26: `agentura run --local` only reads `agentura.yaml` from the current working directory, so the reusable GitHub Action must run from the config directory and alias non-default config filenames.
+- 2026-03-26: The repo-level `pnpm build` command now intentionally excludes `@agentura/web` until the Prisma resolution issue in that app is fixed.
 
 ---
 

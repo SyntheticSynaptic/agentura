@@ -9,5 +9,5 @@ It intentionally spreads five golden cases across five one-case suites so the lo
 Run it with:
 
 ```bash
-npx agentura run --local
+npx agentura@latest run --local
 ```

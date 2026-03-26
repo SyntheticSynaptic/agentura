@@ -1,0 +1,27 @@
+name: Agentura Eval
+description: Run Agentura eval suites locally in GitHub Actions
+
+inputs:
+  config:
+    description: Path to agentura.yaml
+    required: false
+    default: agentura.yaml
+  version:
+    description: Agentura CLI version to install
+    required: false
+    default: latest
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 20
+    - name: Install Agentura CLI
+      shell: bash
+      run: npm install -g agentura@${{ inputs.version }}
+    - name: Run Agentura eval
+      shell: bash
+      env:
+        AGENTURA_ACTION_CONFIG: ${{ inputs.config }}
+      run: bash "${{ github.action_path }}/run.sh"

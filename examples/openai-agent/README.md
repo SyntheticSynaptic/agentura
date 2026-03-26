@@ -19,7 +19,7 @@ npm start
 
 ## Run evals (in a second terminal)
 ```bash
-npx agentura run --local
+npx agentura@latest run --local
 ```
 
 ## What you will see

@@ -1,0 +1,42 @@
+name: Bug Report
+description: Something is broken
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for reporting a bug.
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Agentura version
+      placeholder: "0.1.1"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: OS
+      options:
+        - macOS
+        - Linux
+        - Windows
+    validations:
+      required: true

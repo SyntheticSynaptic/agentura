@@ -4,7 +4,8 @@
   "private": true,
   "packageManager": "pnpm@9.15.4",
   "scripts": {
-    "build": "turbo run build",
+    "build": "turbo run build --filter=!@agentura/web",
+    "test": "pnpm --filter @agentura/eval-runner test && pnpm --filter agentura test",
     "type-check": "turbo run type-check",
     "dev": "turbo run dev --parallel"
   },

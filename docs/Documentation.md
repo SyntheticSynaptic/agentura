@@ -9,7 +9,7 @@
 
 **Active milestone:** 18 — CLI: agentura generate
 **Progress:** 17 / 19 milestones complete
-**Last updated:** Added CLI scaffolding for `agentura generate` with Groq-backed dataset/rubric generation, optional endpoint probing, and YAML auto-expansion flow
+**Last updated:** Added repo CI, reusable GitHub Actions support, contributor docs, issue templates, and a release-oriented README refresh
 **Next action:** Run manual Milestone 18 E2E checks (`generate` basic flow, flag-driven flow, and missing-config failure path)
 
 ---
@@ -29,7 +29,8 @@ pnpm run dev
 # Type check all packages
 pnpm run type-check
 
-# Build all packages
+# Build CI-covered workspace packages
+# (`apps/web` is temporarily excluded here because of a known Prisma build issue)
 pnpm run build
 
 # Run CLI locally (without global install)
@@ -1597,6 +1598,156 @@ Return to Milestone 18 manual `agentura generate` E2E checks after reviewing the
 - `node packages/cli/dist/index.js --help`: PASS
 - `node ../../packages/cli/dist/index.js run --local` (in `examples/demo-agent`): PASS (expected mixed 3-pass / 2-fail demo output, exit code 1)
 - `pnpm run type-check`: PASS
+
+**Issues found:**
+- None
+
+**Next session:**
+Milestone 18 — run manual `agentura generate` end-to-end checks and, after review, prepare the CLI for human-led npm publish.
+
+## Session — 2026-03-26 08:43 UTC
+
+**Milestone:** 18 — CLI: agentura generate
+**Status:** IN PROGRESS
+
+**Files created:**
+- `.github/workflows/ci.yml` — added the repo CI workflow for install, build, and type-check on pushes and PRs to `main`
+- `.github/actions/agentura-eval/action.yml` — added the reusable composite action entrypoint under `.github/actions`
+- `.github/actions/agentura-eval/run.sh` — added the shared GitHub Action runner script with config-path handling and `$GITHUB_STEP_SUMMARY` output
+- `action.yml` — added a root action shim so `uses: SyntheticSynaptic/agentura@main` works exactly as documented
+- `docs/github-action.md` — added paste-ready GitHub Actions usage docs for downstream repos
+- `CONTRIBUTING.md` — added contributor setup, development, and testing guidance
+- `.github/ISSUE_TEMPLATE/bug_report.yml` — added the bug report issue form
+- `.github/ISSUE_TEMPLATE/feature_request.yml` — added the feature request issue form
+- `.github/ISSUE_TEMPLATE/config.yml` — disabled blank issues and routed questions to GitHub Discussions
+
+**Files modified:**
+- `package.json` — updated root `build` to exclude `@agentura/web` from CI, and added a working root `test` command
+- `packages/cli/package.json` — added a stable CLI package test script using Node’s test runner with `tsx` import support
+- `README.md` — replaced the root README with the release-oriented copy, badges, quick start, GitHub Actions snippet, and config example
+- `docs/Plan.md` — synchronized the stale progress table, milestone 17 definition, and decision/discovery notes with the current project state
+- `docs/Documentation.md` — refreshed current-status wording, clarified the root build note, and appended this session entry
+
+**Decisions made:**
+- Excluded `@agentura/web` from the root `pnpm build` path so CI can stay green while the known Prisma build-resolution issue in that app remains unresolved.
+- Added both a root action and a nested reusable action so the docs can keep the simple `uses: SyntheticSynaptic/agentura@main` snippet without giving up the requested `.github/actions/agentura-eval/action.yml` entrypoint.
+- Switched the CLI package test script from `tsx --test` to `node --test --import tsx` because the `tsx` IPC server hit sandbox `EPERM` errors during root test runs.
+
+**Validation results:**
+- `pnpm build`: PASS
+- `pnpm test`: PASS
+- `pnpm type-check`: PASS
+
+**Issues found:**
+- `README.md` now links to `docs/self-hosting.md` per the requested copy, but that file does not exist yet.
+
+**Next session:**
+Milestone 18 — run the pending manual `agentura generate` end-to-end checks, then decide whether to backfill `docs/self-hosting.md` or revise that README link.
+
+## Session — 2026-03-26 08:49 UTC
+
+**Milestone:** 18 — CLI: agentura generate
+**Status:** IN PROGRESS
+
+**Files created:**
+- `docs/self-hosting.md` — added a minimal placeholder page for the README self-hosting link, with Docker-based guidance and a “coming soon” note
+
+**Files modified:**
+- `docs/Documentation.md` — appended this session entry
+
+**Decisions made:**
+- Linked the placeholder page directly to the existing root `Dockerfile` and noted that `docker-compose.yml` is not present yet, instead of implying unsupported assets exist.
+
+**Validation results:**
+- `ls -1`: PASS
+- `rg --files -g 'Dockerfile' -g 'docker-compose.yml' -g 'docker-compose.yaml'`: PASS
+- `pnpm run type-check`: NOT RUN (docs-only follow-up)
+
+**Issues found:**
+- None
+
+**Next session:**
+Milestone 18 — run the pending manual `agentura generate` end-to-end checks.
+
+## Session — 2026-03-26 08:57 UTC
+
+**Milestone:** 18 — CLI: agentura generate
+**Status:** IN PROGRESS
+
+**Files created:**
+- None
+
+**Files modified:**
+- `.github/workflows/ci.yml` — changed the workflow build step to the exact filtered command requested for CI
+- `.github/ISSUE_TEMPLATE/bug_report.yml` — trimmed the bug template down to the exact requested fields and copy
+- `docs/self-hosting.md` — rewrote the placeholder to the requested heading and minimal Docker/no-compose wording
+- `docs/Documentation.md` — appended this session entry
+
+**Decisions made:**
+- Kept the existing root build script and validated the exact requested `pnpm build --filter=!@agentura/web` command directly, since it succeeds even with the repo-level build filter already in place.
+
+**Validation results:**
+- `pnpm build --filter=!@agentura/web`: PASS
+- `pnpm type-check`: PASS
+- `pnpm test`: PASS
+
+**Issues found:**
+- `git status --short` currently errors in this checkout with `fatal: not a git repository: /Users/phoenix/Downloads/agentura-main/.git/worktrees/friendly-pike`, even though `git rev-parse --show-toplevel` and `git branch --show-current` work; if commit/push commands fail next, the worktree metadata will need a targeted fix.
+
+**Next session:**
+Milestone 18 — run the pending manual `agentura generate` end-to-end checks after finishing the requested git commit/push sequence.
+
+## Session — 2026-03-26 09:11 UTC
+
+**Milestone:** 18 — CLI: agentura generate
+**Status:** IN PROGRESS
+
+**Files created:**
+- None
+
+**Files modified:**
+- `docs/Documentation.md` — appended this session entry
+
+**Decisions made:**
+- Removed the repo's `.claude` directory after the user explicitly approved it, because the checkout contained a tracked gitlink at `.claude/worktrees/friendly-pike` that left git pointing at stale worktree metadata.
+- Kept the already-validated task changes intact and treated the `.claude` removal as repository repair work rather than rolling back any user-visible docs or CI changes.
+
+**Validation results:**
+- `git status --short`: PASS (after removing `.claude`)
+- `pnpm build --filter=!@agentura/web`: PASS
+- `pnpm type-check`: PASS
+- `pnpm test`: PASS
+
+**Issues found:**
+- None
+
+**Next session:**
+Milestone 18 — run the pending manual `agentura generate` end-to-end checks after the requested commit/push sequence is complete.
+
+## Session — 2026-03-26 08:18 UTC
+
+**Milestone:** 18 — README follow-up for published CLI examples
+**Status:** IN PROGRESS
+
+**Files created:**
+- None
+
+**Files modified:**
+- `README.md` — added the hosted demo GIF line near the top of the root README before the demo section
+- `examples/openai-agent/README.md` — switched the local run command to `npx agentura@latest run --local`
+- `examples/langchain-agent/README.md` — switched the local run command to `npx agentura@latest run --local`
+- `examples/http-agent/README.md` — switched the local run command to `npx agentura@latest run --local`
+- `examples/demo-agent/README.md` — switched the local run command to `npx agentura@latest run --local`
+- `docs/Documentation.md` — appended this session summary
+
+**Decisions made:**
+- Used `npx agentura@latest` in every example README — this avoids stale `npx` cache behavior now that the CLI is published on npm.
+- Added the GIF line directly below the intro in the root README — the file has no badge block yet, so this is the nearest equivalent placement before the demo section.
+
+**Validation results:**
+- `rg -n "npx agentura" examples -g 'README.md'`: PASS (all example README commands updated to `agentura@latest`)
+- `sed -n '1,20p' README.md`: PASS
+- `pnpm run type-check`: NOT RUN (README-only follow-up)
 
 **Issues found:**
 - None
