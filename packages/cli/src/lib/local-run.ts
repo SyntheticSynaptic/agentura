@@ -1,7 +1,10 @@
+import { execFile as execFileCallback } from "node:child_process";
+import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import { performance } from "node:perf_hooks";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { promisify } from "node:util";
 import chalk from "chalk";
 import yaml from "js-yaml";
 import {
@@ -15,7 +18,7 @@ import {
   runPerformance,
 } from "@agentura/eval-runner";
 import type { ResolvedLlmJudgeProvider } from "@agentura/eval-runner";
-import type { AgentFunction, EvalCaseResult, SuiteRunResult } from "@agentura/types";
+import type { AgentFunction, EvalCase, EvalCaseResult, SuiteRunResult } from "@agentura/types";
 import { z } from "zod";
 
 import { loadDataset } from "./load-dataset";
@@ -24,6 +27,7 @@ import { loadRubric } from "./load-rubric";
 export interface LocalRunCommandOptions {
   suite?: string;
   verbose?: boolean;
+  resetBaseline?: boolean;
 }
 
 interface LocalSuiteSummaryRow {
@@ -45,7 +49,82 @@ interface PerformanceSuiteMetadata {
   p95?: number;
 }
 
+interface CompletedSuiteRun {
+  suite: ParsedSuite;
+  cases: EvalCase[];
+  result: SuiteRunResult;
+}
+
+interface BaselineCaseSnapshot {
+  id: string;
+  input: string;
+  expected: string | null;
+  actual: string | null;
+  passed: boolean;
+  score: number;
+}
+
+interface BaselineSuiteSnapshot {
+  score: number;
+  cases: BaselineCaseSnapshot[];
+}
+
+interface BaselineSnapshot {
+  version: 1;
+  timestamp: string;
+  commit: string | null;
+  suites: Record<string, BaselineSuiteSnapshot>;
+}
+
+interface DiffCaseChange {
+  id: string;
+  input: string;
+  expected: string | null;
+  baselineActual: string | null;
+  currentActual: string | null;
+  baselinePassed: boolean | null;
+  currentPassed: boolean | null;
+  baselineScore: number | null;
+  currentScore: number | null;
+}
+
+interface DiffSuiteReport {
+  score: number;
+  baselineScore: number | null;
+  regressions: DiffCaseChange[];
+  improvements: DiffCaseChange[];
+  newCases: DiffCaseChange[];
+  missingCases: DiffCaseChange[];
+}
+
+interface DiffSummary {
+  regressions: number;
+  improvements: number;
+  newCases: number;
+  missingCases: number;
+}
+
+interface DiffReport {
+  version: 1;
+  timestamp: string;
+  baselineFound: boolean;
+  resetBaseline: boolean;
+  baselinePath: string;
+  currentCommit: string | null;
+  baselineCommit: string | null;
+  baselineSaved: boolean;
+  baselineError: string | null;
+  summary: DiffSummary;
+  suites: Record<string, DiffSuiteReport>;
+}
+
 type GoldenScorer = "exact_match" | "contains" | "semantic_similarity";
+
+const execFile = promisify(execFileCallback);
+const LOCAL_STATE_DIR = ".agentura";
+const BASELINE_FILE_NAME = "baseline.json";
+const DIFF_FILE_NAME = "diff.json";
+const BASELINE_VERSION = 1 as const;
 
 const agentSchema = z
   .object({
@@ -139,6 +218,27 @@ const configSchema = z.object({
   agent: agentSchema,
   evals: z.array(z.union([goldenSuiteSchema, llmJudgeSuiteSchema, performanceSuiteSchema])),
   ci: ciSchema,
+});
+
+const baselineCaseSnapshotSchema = z.object({
+  id: z.string().min(1),
+  input: z.string(),
+  expected: z.string().nullable(),
+  actual: z.string().nullable(),
+  passed: z.boolean(),
+  score: z.number().min(0).max(1),
+});
+
+const baselineSuiteSnapshotSchema = z.object({
+  score: z.number().min(0).max(1),
+  cases: z.array(baselineCaseSnapshotSchema),
+});
+
+const baselineSnapshotSchema = z.object({
+  version: z.literal(BASELINE_VERSION),
+  timestamp: z.string().min(1),
+  commit: z.string().nullable(),
+  suites: z.record(baselineSuiteSnapshotSchema),
 });
 
 type ParsedConfig = z.infer<typeof configSchema>;
@@ -259,6 +359,321 @@ function formatStatusText(passed: boolean, skipped: boolean): string {
   }
 
   return passed ? chalk.green("✅ PASS") : chalk.red("❌ FAIL");
+}
+
+function pluralize(count: number, singular: string, plural = `${singular}s`): string {
+  return count === 1 ? singular : plural;
+}
+
+function quoteValue(value: string | null): string {
+  return value === null ? "(no output)" : JSON.stringify(value);
+}
+
+function getLocalStatePath(cwd: string, fileName: string): string {
+  return path.join(cwd, LOCAL_STATE_DIR, fileName);
+}
+
+function createCaseId(testCase: EvalCase): string {
+  const explicitId = testCase.id?.trim();
+  if (explicitId) {
+    return explicitId;
+  }
+
+  return createHash("sha256").update(testCase.input).digest("hex");
+}
+
+function toBaselineCaseSnapshot(testCase: EvalCase, caseResult: EvalCaseResult): BaselineCaseSnapshot {
+  return {
+    id: createCaseId(testCase),
+    input: testCase.input,
+    expected: caseResult.expected ?? testCase.expected ?? null,
+    actual: caseResult.output ?? null,
+    passed: caseResult.passed,
+    score: caseResult.score,
+  };
+}
+
+function buildBaselineSnapshot(
+  completedSuites: CompletedSuiteRun[],
+  commit: string | null
+): BaselineSnapshot {
+  const suites = Object.fromEntries(
+    completedSuites.map((suiteRun) => [
+      suiteRun.result.suiteName,
+      {
+        score: suiteRun.result.score,
+        cases: suiteRun.result.cases.map((caseResult) =>
+          toBaselineCaseSnapshot(suiteRun.cases[caseResult.caseIndex] ?? {
+            input: caseResult.input,
+            expected: caseResult.expected,
+          }, caseResult)
+        ),
+      },
+    ])
+  );
+
+  return {
+    version: BASELINE_VERSION,
+    timestamp: new Date().toISOString(),
+    commit,
+    suites,
+  };
+}
+
+async function ensureLocalStateDir(cwd: string): Promise<string> {
+  const directory = path.join(cwd, LOCAL_STATE_DIR);
+  await fs.mkdir(directory, { recursive: true });
+  return directory;
+}
+
+async function writeJsonFile(filePath: string, value: unknown): Promise<void> {
+  await fs.writeFile(filePath, JSON.stringify(value, null, 2) + "\n", "utf-8");
+}
+
+async function writeBaselineSnapshot(cwd: string, snapshot: BaselineSnapshot): Promise<void> {
+  await ensureLocalStateDir(cwd);
+  await writeJsonFile(getLocalStatePath(cwd, BASELINE_FILE_NAME), snapshot);
+}
+
+async function readBaselineSnapshot(
+  cwd: string
+): Promise<{ snapshot: BaselineSnapshot | null; error: string | null }> {
+  const baselinePath = getLocalStatePath(cwd, BASELINE_FILE_NAME);
+  let raw: string;
+
+  try {
+    raw = await fs.readFile(baselinePath, "utf-8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return { snapshot: null, error: null };
+    }
+
+    throw error;
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (error) {
+    return {
+      snapshot: null,
+      error: `Ignoring invalid baseline at ${baselinePath}: ${getErrorMessage(error)}`,
+    };
+  }
+
+  const validated = baselineSnapshotSchema.safeParse(parsed);
+  if (!validated.success) {
+    const issue = validated.error.issues[0];
+    const issuePath = issue?.path?.join(".") ?? "root";
+    return {
+      snapshot: null,
+      error: `Ignoring invalid baseline at ${baselinePath}: ${issuePath} ${issue?.message ?? ""}`.trim(),
+    };
+  }
+
+  return { snapshot: validated.data, error: null };
+}
+
+function createEmptyDiffSummary(): DiffSummary {
+  return {
+    regressions: 0,
+    improvements: 0,
+    newCases: 0,
+    missingCases: 0,
+  };
+}
+
+function createDiffChange(
+  baselineCase: BaselineCaseSnapshot | null,
+  currentCase: BaselineCaseSnapshot | null
+): DiffCaseChange {
+  const sourceCase = currentCase ?? baselineCase;
+
+  return {
+    id: sourceCase?.id ?? "unknown",
+    input: sourceCase?.input ?? "",
+    expected: currentCase?.expected ?? baselineCase?.expected ?? null,
+    baselineActual: baselineCase?.actual ?? null,
+    currentActual: currentCase?.actual ?? null,
+    baselinePassed: baselineCase?.passed ?? null,
+    currentPassed: currentCase?.passed ?? null,
+    baselineScore: baselineCase?.score ?? null,
+    currentScore: currentCase?.score ?? null,
+  };
+}
+
+function computeDiffReport(
+  baseline: BaselineSnapshot,
+  current: BaselineSnapshot,
+  baselinePath: string,
+  resetBaseline: boolean,
+  baselineSaved: boolean,
+  baselineError: string | null
+): DiffReport {
+  const suites: Record<string, DiffSuiteReport> = {};
+  const summary = createEmptyDiffSummary();
+
+  for (const [suiteName, currentSuite] of Object.entries(current.suites)) {
+    const baselineSuite = baseline.suites[suiteName];
+    const regressions: DiffCaseChange[] = [];
+    const improvements: DiffCaseChange[] = [];
+    const newCases: DiffCaseChange[] = [];
+    const missingCases: DiffCaseChange[] = [];
+
+    const baselineByInput = new Map(
+      (baselineSuite?.cases ?? []).map((testCase) => [testCase.input, testCase])
+    );
+    const currentByInput = new Map(currentSuite.cases.map((testCase) => [testCase.input, testCase]));
+
+    for (const currentCase of currentSuite.cases) {
+      const baselineCase = baselineByInput.get(currentCase.input);
+      if (!baselineCase) {
+        newCases.push(createDiffChange(null, currentCase));
+        continue;
+      }
+
+      if (baselineCase.passed && !currentCase.passed) {
+        regressions.push(createDiffChange(baselineCase, currentCase));
+        continue;
+      }
+
+      if (!baselineCase.passed && currentCase.passed) {
+        improvements.push(createDiffChange(baselineCase, currentCase));
+      }
+    }
+
+    for (const baselineCase of baselineSuite?.cases ?? []) {
+      if (!currentByInput.has(baselineCase.input)) {
+        missingCases.push(createDiffChange(baselineCase, null));
+      }
+    }
+
+    summary.regressions += regressions.length;
+    summary.improvements += improvements.length;
+    summary.newCases += newCases.length;
+    summary.missingCases += missingCases.length;
+
+    suites[suiteName] = {
+      score: currentSuite.score,
+      baselineScore: baselineSuite?.score ?? null,
+      regressions,
+      improvements,
+      newCases,
+      missingCases,
+    };
+  }
+
+  return {
+    version: BASELINE_VERSION,
+    timestamp: new Date().toISOString(),
+    baselineFound: true,
+    resetBaseline,
+    baselinePath,
+    currentCommit: current.commit,
+    baselineCommit: baseline.commit,
+    baselineSaved,
+    baselineError,
+    summary,
+    suites,
+  };
+}
+
+async function writeDiffReport(cwd: string, report: DiffReport): Promise<void> {
+  await ensureLocalStateDir(cwd);
+  await writeJsonFile(getLocalStatePath(cwd, DIFF_FILE_NAME), report);
+}
+
+function flattenDiffChanges(
+  report: DiffReport,
+  field: keyof Pick<DiffSuiteReport, "regressions" | "improvements" | "newCases" | "missingCases">
+): Array<DiffCaseChange & { suiteName: string }> {
+  return Object.entries(report.suites).flatMap(([suiteName, suiteReport]) =>
+    suiteReport[field].map((change) => ({
+      suiteName,
+      ...change,
+    }))
+  );
+}
+
+function printCaseChange(
+  suiteName: string,
+  symbol: string,
+  change: DiffCaseChange,
+  options: { showExpected?: boolean; showActual?: boolean }
+): void {
+  console.log(`  ${symbol} ${suiteName} · ${change.id}: ${JSON.stringify(change.input)}`);
+
+  if (options.showExpected) {
+    console.log(`    expected: ${quoteValue(change.expected)}`);
+  }
+
+  if (options.showActual) {
+    console.log(`    actual:   ${quoteValue(change.currentActual)}`);
+  }
+}
+
+function printDiffSection(
+  title: string,
+  entries: Array<DiffCaseChange & { suiteName: string }>,
+  detail: string,
+  symbol: string,
+  options: { showExpected?: boolean; showActual?: boolean } = {}
+): void {
+  if (entries.length === 0) {
+    return;
+  }
+
+  console.log(
+    `${title} (${String(entries.length)} ${pluralize(entries.length, "case")} ${detail}):`
+  );
+  entries.forEach((entry) => {
+    printCaseChange(entry.suiteName, symbol, entry, options);
+  });
+  console.log("");
+}
+
+function printDiffReport(report: DiffReport): void {
+  const regressions = flattenDiffChanges(report, "regressions");
+  const improvements = flattenDiffChanges(report, "improvements");
+  const newCases = flattenDiffChanges(report, "newCases");
+  const missingCases = flattenDiffChanges(report, "missingCases");
+
+  if (
+    regressions.length === 0 &&
+    improvements.length === 0 &&
+    newCases.length === 0 &&
+    missingCases.length === 0
+  ) {
+    console.log("No case-level changes against baseline.");
+    console.log("");
+    return;
+  }
+
+  printDiffSection("Regressions", regressions, "flipped from pass to fail", "✗", {
+    showExpected: true,
+    showActual: true,
+  });
+  printDiffSection("Improvements", improvements, "flipped from fail to pass", "✓", {
+    showExpected: true,
+    showActual: true,
+  });
+  printDiffSection("New cases", newCases, "are new compared to baseline", "+", {
+    showExpected: true,
+    showActual: true,
+  });
+  printDiffSection("Missing cases", missingCases, "are missing from this run", "-", {
+    showExpected: true,
+  });
+}
+
+async function getGitCommitSha(cwd: string): Promise<string | null> {
+  try {
+    const result = await execFile("git", ["rev-parse", "HEAD"], { cwd });
+    const sha = result.stdout.trim();
+    return sha.length > 0 ? sha : null;
+  } catch {
+    return null;
+  }
 }
 
 function renderTable(rows: LocalSuiteSummaryRow[]): string {
@@ -417,48 +832,60 @@ async function runSuite(
   suite: ParsedSuite,
   agentFn: AgentFunction,
   judge: ResolvedLlmJudgeProvider | null
-): Promise<SuiteRunResult | SkippedSuiteResult> {
+): Promise<{ cases: EvalCase[]; result: SuiteRunResult | SkippedSuiteResult }> {
   const cases = await loadDataset(suite.dataset);
 
   if (suite.type === "golden_dataset") {
-    return runGoldenDataset(cases, agentFn, suite.scorer as GoldenScorer, {
-      suiteName: suite.name,
-      threshold: suite.threshold,
-    });
+    return {
+      cases,
+      result: await runGoldenDataset(cases, agentFn, suite.scorer as GoldenScorer, {
+        suiteName: suite.name,
+        threshold: suite.threshold,
+      }),
+    };
   }
 
   if (suite.type === "llm_judge") {
     if (!judge) {
       return {
-        suiteName: suite.name,
-        strategy: suite.type,
-        reason: NO_LLM_JUDGE_API_KEY_WARNING,
+        cases,
+        result: {
+          suiteName: suite.name,
+          strategy: suite.type,
+          reason: NO_LLM_JUDGE_API_KEY_WARNING,
+        },
       };
     }
 
     const rubric = await loadRubric(suite.rubric);
-    return runLlmJudge(
-      {
-        suiteName: suite.name,
-        threshold: suite.threshold,
-        agentFn,
-        judge,
-      },
+    return {
       cases,
-      rubric
-    );
+      result: await runLlmJudge(
+        {
+          suiteName: suite.name,
+          threshold: suite.threshold,
+          agentFn,
+          judge,
+        },
+        cases,
+        rubric
+      ),
+    };
   }
 
   const latencyThresholdMs = getPerformanceThresholdMs(suite);
-  return runPerformance(
-    {
-      suiteName: suite.name,
-      agentFn,
-      latencyThresholdMs: latencyThresholdMs ?? 1,
-    },
+  return {
     cases,
-    suite.threshold ?? 1
-  );
+    result: await runPerformance(
+      {
+        suiteName: suite.name,
+        agentFn,
+        latencyThresholdMs: latencyThresholdMs ?? 1,
+      },
+      cases,
+      suite.threshold ?? 1
+    ),
+  };
 }
 
 function toSummaryRow(
@@ -511,6 +938,7 @@ export async function runLocalCommand(options: LocalRunCommandOptions = {}): Pro
   const cwd = process.cwd();
   const startedAt = performance.now();
   const config = await loadAgenturaConfig(cwd);
+  const baselinePath = getLocalStatePath(cwd, BASELINE_FILE_NAME);
   const agentFn = createLocalAgentFunction(config.agent, cwd);
   const suites = options.suite
     ? config.evals.filter((suite) => suite.name === options.suite)
@@ -525,6 +953,7 @@ export async function runLocalCommand(options: LocalRunCommandOptions = {}): Pro
 
   const completedRows: LocalSuiteSummaryRow[] = [];
   const skippedReasons: string[] = [];
+  const completedSuites: CompletedSuiteRun[] = [];
 
   console.log(chalk.gray("Running evals locally..."));
   if (judge) {
@@ -533,23 +962,81 @@ export async function runLocalCommand(options: LocalRunCommandOptions = {}): Pro
 
   for (const suite of suites) {
     console.log(chalk.gray(`  Running suite: ${suite.name} (${suite.type})...`));
-    const suiteResult = await runSuite(suite, agentFn, judge);
-    const summaryRow = toSummaryRow(suite, suiteResult);
+    const suiteExecution = await runSuite(suite, agentFn, judge);
+    const summaryRow = toSummaryRow(suite, suiteExecution.result);
     completedRows.push(summaryRow);
 
-    if ("reason" in suiteResult) {
-      skippedReasons.push(suiteResult.reason);
+    if ("reason" in suiteExecution.result) {
+      skippedReasons.push(suiteExecution.result.reason);
       continue;
     }
 
+    completedSuites.push({
+      suite,
+      cases: suiteExecution.cases,
+      result: suiteExecution.result,
+    });
+
     if (options.verbose) {
-      printVerboseCaseResults(suiteResult);
+      printVerboseCaseResults(suiteExecution.result);
     }
   }
 
   console.log("");
   console.log(renderTable(completedRows));
   console.log("");
+
+  const currentCommit = await getGitCommitSha(cwd);
+  const currentSnapshot = buildBaselineSnapshot(completedSuites, currentCommit);
+  const baselineReadResult = options.resetBaseline
+    ? { snapshot: null, error: null }
+    : await readBaselineSnapshot(cwd);
+  let diffReport: DiffReport = {
+    version: BASELINE_VERSION,
+    timestamp: new Date().toISOString(),
+    baselineFound: baselineReadResult.snapshot !== null,
+    resetBaseline: options.resetBaseline === true,
+    baselinePath,
+    currentCommit,
+    baselineCommit: baselineReadResult.snapshot?.commit ?? null,
+    baselineSaved: false,
+    baselineError: baselineReadResult.error,
+    summary: createEmptyDiffSummary(),
+    suites: {},
+  };
+
+  if (baselineReadResult.error) {
+    console.log(chalk.yellow(baselineReadResult.error));
+  }
+
+  if (options.resetBaseline) {
+    await writeBaselineSnapshot(cwd, currentSnapshot);
+    diffReport = {
+      ...diffReport,
+      baselineSaved: true,
+    };
+    console.log("Baseline reset with current run results.");
+    console.log("");
+  } else if (!baselineReadResult.snapshot) {
+    await writeBaselineSnapshot(cwd, currentSnapshot);
+    diffReport = {
+      ...diffReport,
+      baselineSaved: true,
+    };
+    console.log("No baseline found. This run will be saved as baseline.");
+    console.log("Run again to see regressions.");
+    console.log("");
+  } else {
+    diffReport = computeDiffReport(
+      baselineReadResult.snapshot,
+      currentSnapshot,
+      baselinePath,
+      false,
+      false,
+      baselineReadResult.error
+    );
+    printDiffReport(diffReport);
+  }
 
   const failedSuites = completedRows.filter((row) => !row.passed && !row.skipped).length;
   const exitCode = failedSuites > 0 ? 1 : 0;
@@ -559,6 +1046,10 @@ export async function runLocalCommand(options: LocalRunCommandOptions = {}): Pro
 
   if (skippedReasons.length > 0) {
     [...new Set(skippedReasons)].forEach((reason) => console.log(chalk.yellow(reason)));
+  }
+
+  if (!process.stdout.isTTY) {
+    await writeDiffReport(cwd, diffReport);
   }
 
   console.log(chalk.gray(`Completed in ${formatDurationMs(performance.now() - startedAt)}.`));

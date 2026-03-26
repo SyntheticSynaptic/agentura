@@ -1781,6 +1781,40 @@ Milestone 18 — run manual `agentura generate` end-to-end checks and, after rev
 **Next session:**
 Milestone 18 — run the pending manual `agentura generate` end-to-end checks and missing-config validation flow.
 
+## Session — 2026-03-26 10:42 UTC
+
+**Milestone:** A — Regression Diff Output
+**Status:** COMPLETE
+
+**Files created:**
+- None
+
+**Files modified:**
+- `.gitignore` — ignored local `.agentura/baseline.json` and `.agentura/diff.json` artifacts
+- `packages/types/src/index.ts` — added optional dataset case IDs
+- `packages/cli/src/lib/load-dataset.ts` — accepted optional `id` fields in JSONL eval cases
+- `packages/cli/src/index.ts` — added `agentura run --reset-baseline`
+- `packages/cli/src/commands/run.ts` — threaded the reset-baseline flag into local run execution
+- `packages/cli/src/lib/local-run.ts` — added baseline snapshot persistence, case-level diff computation, terminal diff output, non-TTY `.agentura/diff.json` output, git SHA capture, and reset-baseline handling
+- `packages/cli/src/commands/run.test.ts` — added coverage for first-run baseline creation, regression reporting, reset-baseline overwrites, and non-TTY diff artifact output
+- `docs/Documentation.md` — appended this session entry
+
+**Decisions made:**
+- Kept the baseline/diff logic entirely in the CLI local-run layer so worker/cloud regression logic stays unchanged.
+- Saved the local baseline only when it is missing or explicitly reset, so repeated local runs compare against a stable accepted snapshot instead of auto-advancing the baseline every time.
+
+**Validation results:**
+- `pnpm --filter @agentura/types build`: PASS
+- `pnpm --filter agentura build`: PASS
+- `pnpm type-check`: PASS
+- `pnpm test`: PASS
+
+**Issues found:**
+- CLI tests and CLI type-check resolution both depend on built workspace `dist` artifacts, so rebuilding `@agentura/types` and `agentura` was required before the final validation pass.
+
+**Next session:**
+Milestone 18 — resume the pending manual `agentura generate` end-to-end checks and missing-config validation flow, or extend the local regression output into `agentura compare` if requested.
+
 ## Session — 2026-03-26 09:32 UTC
 
 **Milestone:** 18 — CLI: agentura generate

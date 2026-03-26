@@ -34,6 +34,7 @@ export interface CIConfig {
 }
 
 export interface EvalCase {
+  id?: string;
   input: string;
   context?: string;
   expected?: string;

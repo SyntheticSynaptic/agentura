@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { after, test } from "node:test";
@@ -28,6 +28,11 @@ async function writeCommonConfigFiles(
   await writeFile(path.join(directory, "agent.js"), agentScript, "utf-8");
   await writeFile(path.join(directory, "evals", "cases.jsonl"), dataset, "utf-8");
   await writeFile(path.join(directory, "agentura.yaml"), config, "utf-8");
+}
+
+async function readJson<T>(filePath: string): Promise<T> {
+  const raw = await readFile(filePath, "utf-8");
+  return JSON.parse(raw) as T;
 }
 
 function runCli(
@@ -113,6 +118,49 @@ evals:
     scorer: exact_match
     threshold: 0.85
 ci:
+    block_on_regression: true
+    regression_threshold: 0.05
+    compare_to: main
+    post_comment: true
+    fail_on_new_suite: false
+`.trimStart()
+  );
+
+  const result = await runCli(directory, ["run", "--local"]);
+  const output = stripAnsi(result.output);
+
+  assert.equal(result.code, 0);
+  assert.match(output, /Agentura Eval Results/);
+  assert.match(output, /accuracy/);
+  assert.match(output, /PASS/);
+});
+
+test("run --local creates a baseline snapshot on first run and writes non-TTY diff metadata", async () => {
+  const directory = await createFixtureDir("agentura-cli-baseline-create-");
+
+  await writeCommonConfigFiles(
+    directory,
+    `
+const chunks = [];
+process.stdin.on("data", (chunk) => chunks.push(chunk.toString()));
+process.stdin.on("end", () => {
+  process.stdout.write("30-day money back guarantee");
+});
+`.trimStart(),
+    `{"id":"case_0","input":"What is AcmeBot's refund policy?","expected":"30-day money back guarantee"}\n`,
+    `
+version: 1
+agent:
+  type: cli
+  command: node ./agent.js
+  timeout_ms: 30000
+evals:
+  - name: accuracy
+    type: golden_dataset
+    dataset: ./evals/cases.jsonl
+    scorer: exact_match
+    threshold: 0.85
+ci:
   block_on_regression: true
   regression_threshold: 0.05
   compare_to: main
@@ -125,9 +173,198 @@ ci:
   const output = stripAnsi(result.output);
 
   assert.equal(result.code, 0);
-  assert.match(output, /Agentura Eval Results/);
-  assert.match(output, /accuracy/);
-  assert.match(output, /PASS/);
+  assert.match(output, /No baseline found\. This run will be saved as baseline\./);
+  assert.match(output, /Run again to see regressions\./);
+
+  const baseline = await readJson<{
+    version: number;
+    commit: string | null;
+    suites: Record<
+      string,
+      {
+        score: number;
+        cases: Array<{
+          id: string;
+          input: string;
+          expected: string | null;
+          actual: string | null;
+          passed: boolean;
+          score: number;
+        }>;
+      }
+    >;
+  }>(path.join(directory, ".agentura", "baseline.json"));
+  const diff = await readJson<{
+    baselineFound: boolean;
+    baselineSaved: boolean;
+    summary: { regressions: number; improvements: number; newCases: number; missingCases: number };
+  }>(path.join(directory, ".agentura", "diff.json"));
+
+  assert.equal(baseline.version, 1);
+  assert.equal(baseline.commit, null);
+  assert.equal(baseline.suites.accuracy.score, 1);
+  assert.deepEqual(baseline.suites.accuracy.cases[0], {
+    id: "case_0",
+    input: "What is AcmeBot's refund policy?",
+    expected: "30-day money back guarantee",
+    actual: "30-day money back guarantee",
+    passed: true,
+    score: 1,
+  });
+
+  assert.equal(diff.baselineFound, false);
+  assert.equal(diff.baselineSaved, true);
+  assert.deepEqual(diff.summary, {
+    regressions: 0,
+    improvements: 0,
+    newCases: 0,
+    missingCases: 0,
+  });
+});
+
+test("run --local reports regressions against the saved baseline without overwriting it", async () => {
+  const directory = await createFixtureDir("agentura-cli-baseline-diff-");
+
+  await writeCommonConfigFiles(
+    directory,
+    `
+const chunks = [];
+process.stdin.on("data", (chunk) => chunks.push(chunk.toString()));
+process.stdin.on("end", () => {
+  process.stdout.write("30-day money back guarantee");
+});
+`.trimStart(),
+    `{"id":"case_3","input":"What is AcmeBot's refund policy?","expected":"30-day money back guarantee"}\n`,
+    `
+version: 1
+agent:
+  type: cli
+  command: node ./agent.js
+  timeout_ms: 30000
+evals:
+  - name: accuracy
+    type: golden_dataset
+    dataset: ./evals/cases.jsonl
+    scorer: exact_match
+    threshold: 0.85
+ci:
+  block_on_regression: true
+  regression_threshold: 0.05
+  compare_to: main
+  post_comment: true
+  fail_on_new_suite: false
+`.trimStart()
+  );
+
+  const firstRun = await runCli(directory, ["run", "--local"]);
+  assert.equal(firstRun.code, 0);
+
+  await writeFile(
+    path.join(directory, "agent.js"),
+    `
+const chunks = [];
+process.stdin.on("data", (chunk) => chunks.push(chunk.toString()));
+process.stdin.on("end", () => {
+  process.stdout.write("We do not offer refunds");
+});
+`.trimStart(),
+    "utf-8"
+  );
+
+  const secondRun = await runCli(directory, ["run", "--local"]);
+  const output = stripAnsi(secondRun.output);
+
+  assert.equal(secondRun.code, 1);
+  assert.match(output, /Regressions \(1 case flipped from pass to fail\):/);
+  assert.match(output, /accuracy · case_3: "What is AcmeBot's refund policy\?"/);
+  assert.match(output, /expected: "30-day money back guarantee"/);
+  assert.match(output, /actual:\s+"We do not offer refunds"/);
+
+  const baseline = await readJson<{
+    suites: Record<string, { cases: Array<{ actual: string | null }> }>;
+  }>(path.join(directory, ".agentura", "baseline.json"));
+  const diff = await readJson<{
+    baselineFound: boolean;
+    summary: { regressions: number };
+    suites: Record<string, { regressions: Array<{ id: string; currentActual: string | null }> }>;
+  }>(path.join(directory, ".agentura", "diff.json"));
+
+  assert.equal(baseline.suites.accuracy.cases[0]?.actual, "30-day money back guarantee");
+  assert.equal(diff.baselineFound, true);
+  assert.equal(diff.summary.regressions, 1);
+  assert.equal(diff.suites.accuracy.regressions[0]?.id, "case_3");
+  assert.equal(diff.suites.accuracy.regressions[0]?.currentActual, "We do not offer refunds");
+});
+
+test("run --local --reset-baseline overwrites the saved baseline", async () => {
+  const directory = await createFixtureDir("agentura-cli-baseline-reset-");
+
+  await writeCommonConfigFiles(
+    directory,
+    `
+const chunks = [];
+process.stdin.on("data", (chunk) => chunks.push(chunk.toString()));
+process.stdin.on("end", () => {
+  process.stdout.write("4");
+});
+`.trimStart(),
+    `{"id":"case_7","input":"what is 2+2","expected":"4"}\n`,
+    `
+version: 1
+agent:
+  type: cli
+  command: node ./agent.js
+  timeout_ms: 30000
+evals:
+  - name: accuracy
+    type: golden_dataset
+    dataset: ./evals/cases.jsonl
+    scorer: exact_match
+    threshold: 0.85
+ci:
+  block_on_regression: true
+  regression_threshold: 0.05
+  compare_to: main
+  post_comment: true
+  fail_on_new_suite: false
+`.trimStart()
+  );
+
+  const firstRun = await runCli(directory, ["run", "--local"]);
+  assert.equal(firstRun.code, 0);
+
+  await writeFile(
+    path.join(directory, "agent.js"),
+    `
+const chunks = [];
+process.stdin.on("data", (chunk) => chunks.push(chunk.toString()));
+process.stdin.on("end", () => {
+  process.stdout.write("5");
+});
+`.trimStart(),
+    "utf-8"
+  );
+
+  const resetRun = await runCli(directory, ["run", "--local", "--reset-baseline"]);
+  const output = stripAnsi(resetRun.output);
+
+  assert.equal(resetRun.code, 1);
+  assert.match(output, /Baseline reset with current run results\./);
+
+  const baseline = await readJson<{
+    suites: Record<string, { cases: Array<{ actual: string | null; passed: boolean }> }>;
+  }>(path.join(directory, ".agentura", "baseline.json"));
+  const diff = await readJson<{
+    resetBaseline: boolean;
+    baselineSaved: boolean;
+    baselineFound: boolean;
+  }>(path.join(directory, ".agentura", "diff.json"));
+
+  assert.equal(baseline.suites.accuracy.cases[0]?.actual, "5");
+  assert.equal(baseline.suites.accuracy.cases[0]?.passed, false);
+  assert.equal(diff.resetBaseline, true);
+  assert.equal(diff.baselineSaved, true);
+  assert.equal(diff.baselineFound, false);
 });
 
 test("run --local accepts performance suites that use max_p95_ms and fails when p95 regresses", async () => {

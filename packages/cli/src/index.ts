@@ -50,6 +50,7 @@ program
   .description("Run evals locally")
   .option("--suite <name>", "Run only a specific suite")
   .option("--local", "Run fully offline without Agentura auth or cloud APIs")
+  .option("--reset-baseline", "Overwrite the saved local baseline with this run")
   .option("--verbose", "Show individual case results")
   .action(runCommand);
 
