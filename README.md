@@ -7,8 +7,6 @@
 CI/CD eval platform for AI agents. Catch regressions before 
 they reach production.
 
-![Agentura demo](https://raw.githubusercontent.com/SyntheticSynaptic/agentura/main/docs/demo.gif)
-
 ## Try it in 60 seconds (no signup required)
 
 ```bash
