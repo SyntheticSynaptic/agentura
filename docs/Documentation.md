@@ -1754,3 +1754,29 @@ Milestone 18 — run the pending manual `agentura generate` end-to-end checks af
 
 **Next session:**
 Milestone 18 — run manual `agentura generate` end-to-end checks and, after review, prepare the CLI for human-led npm publish.
+
+## Session — 2026-03-26 09:20 UTC
+
+**Milestone:** 18 — CLI: agentura generate
+**Status:** IN PROGRESS
+
+**Files created:**
+- None
+
+**Files modified:**
+- `.github/workflows/ci.yml` — removed the redundant `pnpm/action-setup` version pin and bumped `actions/checkout` to `v4.2.2`
+- `docs/Documentation.md` — appended this session entry
+
+**Decisions made:**
+- Let the repo root `packageManager: pnpm@9.15.4` field drive pnpm selection in CI instead of duplicating the version in workflow YAML.
+- Pinned `actions/checkout` to `v4.2.2` to suppress the GitHub Actions Node.js 20 deprecation warning without changing the rest of the workflow shape.
+
+**Validation results:**
+- `git diff --check`: PASS
+- `pnpm run type-check`: PASS
+
+**Issues found:**
+- None
+
+**Next session:**
+Milestone 18 — run the pending manual `agentura generate` end-to-end checks and missing-config validation flow.
