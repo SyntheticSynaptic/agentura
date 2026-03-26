@@ -925,9 +925,30 @@ function toSummaryRow(
   };
 }
 
-function printVerboseCaseResults(result: SuiteRunResult): void {
+function printVerboseCaseResults(
+  suite: ParsedSuite,
+  cases: EvalCase[],
+  result: SuiteRunResult
+): void {
+  const isSemanticSimilaritySuite =
+    suite.type === "golden_dataset" && suite.scorer === "semantic_similarity";
+
   result.cases.forEach((caseResult: EvalCaseResult) => {
-    const icon = caseResult.passed ? chalk.green("✅") : chalk.red("❌");
+    const icon = caseResult.passed ? chalk.green("✓") : chalk.red("✗");
+
+    if (isSemanticSimilaritySuite) {
+      const testCase = cases[caseResult.caseIndex] ?? {
+        id: undefined,
+        input: caseResult.input,
+        expected: caseResult.expected,
+      };
+      const caseId = createCaseId(testCase);
+      console.log(
+        `  ${icon} ${caseId} (similarity: ${caseResult.score.toFixed(2)}) ${JSON.stringify(caseResult.input)}`
+      );
+      return;
+    }
+
     console.log(
       `  Case ${String(caseResult.caseIndex + 1)}/${String(result.totalCases)} ${icon} [${caseResult.score.toFixed(2)}]`
     );
@@ -978,7 +999,7 @@ export async function runLocalCommand(options: LocalRunCommandOptions = {}): Pro
     });
 
     if (options.verbose) {
-      printVerboseCaseResults(suiteExecution.result);
+      printVerboseCaseResults(suite, suiteExecution.cases, suiteExecution.result);
     }
   }
 

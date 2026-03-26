@@ -6,33 +6,33 @@ agent:
   timeout_ms: 30000
 
 evals:
-  - name: plans
+  - name: accuracy
     type: golden_dataset
-    dataset: ./evals/plans.jsonl
+    dataset: ./evals/accuracy.jsonl
+    scorer: semantic_similarity
+    threshold: 0.85
+
+  - name: edge_cases
+    type: golden_dataset
+    dataset: ./evals/edge_cases.jsonl
     scorer: contains
     threshold: 1
 
-  - name: integrations
+  - name: tool_use
     type: golden_dataset
-    dataset: ./evals/integrations.jsonl
+    dataset: ./evals/tool_use.jsonl
     scorer: contains
     threshold: 1
 
-  - name: recovery
+  - name: hallucination
     type: golden_dataset
-    dataset: ./evals/recovery.jsonl
+    dataset: ./evals/hallucination.jsonl
     scorer: contains
     threshold: 1
 
-  - name: refunds
+  - name: out_of_scope
     type: golden_dataset
-    dataset: ./evals/refunds.jsonl
-    scorer: contains
-    threshold: 1
-
-  - name: compliance
-    type: golden_dataset
-    dataset: ./evals/compliance.jsonl
+    dataset: ./evals/out_of_scope.jsonl
     scorer: contains
     threshold: 1
 

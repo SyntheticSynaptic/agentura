@@ -135,6 +135,57 @@ ci:
   assert.match(output, /PASS/);
 });
 
+test("run --local --verbose prints per-case similarity for semantic_similarity suites", async () => {
+  const directory = await createFixtureDir("agentura-cli-local-semantic-verbose-");
+
+  await writeCommonConfigFiles(
+    directory,
+    `
+const chunks = [];
+process.stdin.on("data", (chunk) => chunks.push(chunk.toString()));
+process.stdin.on("end", () => {
+  const input = chunks.join("").trim().toLowerCase();
+  if (input.includes("free plan")) {
+    process.stdout.write("The free plan includes 3 projects.");
+    return;
+  }
+
+  process.stdout.write("unknown");
+});
+`.trimStart(),
+    `{"id":"case_3","input":"What does the free plan include?","expected":"The free plan includes 3 projects."}\n`,
+    `
+version: 1
+agent:
+  type: cli
+  command: node ./agent.js
+  timeout_ms: 30000
+evals:
+  - name: accuracy
+    type: golden_dataset
+    dataset: ./evals/cases.jsonl
+    scorer: semantic_similarity
+    threshold: 0.85
+ci:
+  block_on_regression: true
+  regression_threshold: 0.05
+  compare_to: main
+  post_comment: true
+  fail_on_new_suite: false
+`.trimStart()
+  );
+
+  const result = await runCli(directory, ["run", "--local", "--verbose"], {
+    OPENAI_API_KEY: null,
+    ANTHROPIC_API_KEY: null,
+    GEMINI_API_KEY: null,
+  });
+  const output = stripAnsi(result.output);
+
+  assert.equal(result.code, 0);
+  assert.match(output, /✓ case_3 \(similarity: 1\.00\) "What does the free plan include\?"/);
+});
+
 test("run --local creates a baseline snapshot on first run and writes non-TTY diff metadata", async () => {
   const directory = await createFixtureDir("agentura-cli-baseline-create-");
 

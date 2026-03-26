@@ -1781,6 +1781,47 @@ Milestone 18 — run manual `agentura generate` end-to-end checks and, after rev
 **Next session:**
 Milestone 18 — run the pending manual `agentura generate` end-to-end checks and missing-config validation flow.
 
+## Session — 2026-03-26 11:00 UTC
+
+**Milestone:** B — Semantic Similarity Scorer
+**Status:** COMPLETE
+
+**Files created:**
+- None
+
+**Files modified:**
+- `packages/eval-runner/src/scorers/semantic-similarity.ts` — replaced token-overlap scoring with provider-aware embeddings, local cosine similarity, provider resolution, in-memory embedding caching, and fallback warnings
+- `packages/eval-runner/src/scorers/semantic-similarity.test.ts` — added coverage for provider precedence, OpenAI/Anthropic/Gemini embedding paths, caching, no-key fallback, and embedding failure fallback
+- `packages/cli/src/lib/local-run.ts` — added semantic-similarity-specific verbose case output with case IDs and per-case similarity scores
+- `packages/cli/src/commands/run.test.ts` — added `--verbose` semantic similarity coverage
+- `packages/cli/package.json` — made CLI tests build fresh `dist` output before spawning the CLI binary
+- `examples/demo-agent/agentura.yaml` — switched the passing demo accuracy suite to `semantic_similarity` and renamed all demo suite names/files to developer-relevant labels
+- `examples/demo-agent/README.md` — documented the semantic similarity demo behavior and offline fallback
+- `examples/demo-agent/evals/plans.jsonl` → `examples/demo-agent/evals/accuracy.jsonl` — renamed and adjusted the expected answer for semantic similarity
+- `examples/demo-agent/evals/integrations.jsonl` → `examples/demo-agent/evals/edge_cases.jsonl` — renamed demo suite fixture
+- `examples/demo-agent/evals/recovery.jsonl` → `examples/demo-agent/evals/tool_use.jsonl` — renamed demo suite fixture
+- `examples/demo-agent/evals/refunds.jsonl` → `examples/demo-agent/evals/hallucination.jsonl` — renamed demo suite fixture
+- `examples/demo-agent/evals/compliance.jsonl` → `examples/demo-agent/evals/out_of_scope.jsonl` — renamed demo suite fixture
+- `docs/Documentation.md` — appended this session entry
+
+**Decisions made:**
+- Used existing workspace dependencies only: OpenAI and Gemini SDKs for embeddings, plus a direct HTTP Voyage call for the Anthropic-priority path, so no new package approval was needed.
+- Computed cosine similarity entirely in-process and cached embeddings by provider/model/text to avoid duplicate requests within a run.
+- Kept semantic similarity resilient for local/demo use by falling back to the existing token-overlap behavior when no embedding key is present or when an embedding request fails.
+- Made the CLI test script build before testing so spawned local CLI runs always exercise current code instead of stale `dist` output.
+
+**Validation results:**
+- `pnpm --filter @agentura/eval-runner test`: PASS
+- `pnpm --filter agentura test`: PASS
+- `pnpm type-check`: PASS
+- `pnpm test`: PASS
+
+**Issues found:**
+- The CLI package test harness originally spawned a stale built binary, so the new verbose-output assertion failed until the CLI `test` script was updated to rebuild first.
+
+**Next session:**
+Milestone 18 — resume the pending manual `agentura generate` end-to-end checks and missing-config validation flow, or extend semantic similarity baseline reporting into CI surfaces if requested.
+
 ## Session — 2026-03-26 10:42 UTC
 
 **Milestone:** A — Regression Diff Output
