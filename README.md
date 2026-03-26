@@ -110,7 +110,7 @@ ci:
 
 LLM judge and semantic similarity auto-detect your provider:
 set `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`,
-or `GROQ_API_KEY`.
+or `GROQ_API_KEY`, or run Ollama locally.
 
 ## Regression Diff
 
@@ -154,6 +154,7 @@ Designed for environments requiring audit trails.
 | Framework agnostic | ✅ | ✅ | LangChain-first | ✅ |
 | Self-hostable | ✅ | ❌ | ❌ | ✅ |
 | Local mode (no signup) | ✅ | ❌ | ❌ | Partial |
+| Local inference (no API key) | ✅ via Ollama | ❌ | ❌ | Partial |
 | Regression diff | ✅ | ❌ | ❌ | ❌ |
 | Multi-turn eval | ✅ | Partial | Partial | ❌ |
 | Tool-call validation | ✅ | ❌ | ❌ | Partial |

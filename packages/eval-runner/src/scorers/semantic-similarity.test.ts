@@ -22,8 +22,12 @@ function withConsoleWarnings(callback: (warnings: string[]) => Promise<void>): P
 }
 
 function createClientFactories(
-  embeddings: Record<"openai" | "anthropic" | "gemini", Record<string, number[]>>,
-  onCall?: (provider: "openai" | "anthropic" | "gemini", input: string, model: string) => void
+  embeddings: Record<"openai" | "anthropic" | "gemini" | "groq" | "ollama", Record<string, number[]>>,
+  onCall?: (
+    provider: "openai" | "anthropic" | "gemini" | "groq" | "ollama",
+    input: string,
+    model: string
+  ) => void
 ): SemanticSimilarityClientFactories {
   return {
     openai: () => ({
@@ -57,22 +61,45 @@ function createClientFactories(
         },
       },
     }),
+    groq: () => ({
+      embeddings: {
+        create: async ({ input, model }) => {
+          onCall?.("groq", input, model);
+          return {
+            data: [{ embedding: embeddings.groq[input] }],
+          };
+        },
+      },
+    }),
+    ollama: () => ({
+      embeddings: {
+        create: async ({ prompt, model }) => {
+          onCall?.("ollama", prompt, model);
+          return {
+            embedding: embeddings.ollama[prompt],
+          };
+        },
+      },
+    }),
   };
 }
 
-test("resolveSemanticSimilarityProvider prefers OpenAI over other available providers", async () => {
+test("resolveSemanticSimilarityProvider prefers Anthropic over other available providers", async () => {
   resetSemanticSimilarityTestState();
 
   assert.deepEqual(
-    resolveSemanticSimilarityProvider({
-      OPENAI_API_KEY: "openai-key",
-      ANTHROPIC_API_KEY: "anthropic-key",
-      GEMINI_API_KEY: "gemini-key",
-    }),
+    await resolveSemanticSimilarityProvider(
+      {
+        OPENAI_API_KEY: "openai-key",
+        ANTHROPIC_API_KEY: "anthropic-key",
+        GEMINI_API_KEY: "gemini-key",
+      },
+      { ollamaAvailable: true }
+    ),
     {
-      provider: "openai",
-      apiKey: "openai-key",
-      model: "text-embedding-3-small",
+      provider: "anthropic",
+      apiKey: "anthropic-key",
+      model: "voyage-3",
     }
   );
 });
@@ -89,6 +116,8 @@ test("scoreSemanticSimilarity returns cosine similarity for OpenAI embeddings an
       },
       anthropic: {},
       gemini: {},
+      groq: {},
+      ollama: {},
     },
     (provider, input, model) => {
       calls.push({ provider, input, model });
@@ -127,6 +156,8 @@ test("scoreSemanticSimilarity selects the Voyage model for the Anthropic provide
         expected: [0, 1],
       },
       gemini: {},
+      groq: {},
+      ollama: {},
     },
     (provider, input, model) => {
       calls.push({ provider, input, model });
@@ -167,6 +198,8 @@ test("scoreSemanticSimilarity selects Gemini embeddings when only GEMINI_API_KEY
         actual: [1, 0],
         expected: [1, 0],
       },
+      groq: {},
+      ollama: {},
     },
     (provider, input, model) => {
       calls.push({ provider, input, model });
@@ -195,12 +228,121 @@ test("scoreSemanticSimilarity selects Gemini embeddings when only GEMINI_API_KEY
   ]);
 });
 
+test("scoreSemanticSimilarity selects Groq embeddings before Ollama when only GROQ_API_KEY is available", async () => {
+  resetSemanticSimilarityTestState();
+
+  const calls: Array<{ provider: string; input: string; model: string }> = [];
+  const factories = createClientFactories(
+    {
+      openai: {},
+      anthropic: {},
+      gemini: {},
+      groq: {
+        actual: [1, 0],
+        expected: [1, 0],
+      },
+      ollama: {},
+    },
+    (provider, input, model) => {
+      calls.push({ provider, input, model });
+    }
+  );
+
+  const score = await scoreSemanticSimilarity(
+    "actual",
+    "expected",
+    { GROQ_API_KEY: "groq-key", OLLAMA_BASE_URL: "http://127.0.0.1:1" },
+    factories
+  );
+
+  assert.equal(score, 1);
+  assert.deepEqual(calls, [
+    {
+      provider: "groq",
+      input: "actual",
+      model: "text-embedding-3-small",
+    },
+    {
+      provider: "groq",
+      input: "expected",
+      model: "text-embedding-3-small",
+    },
+  ]);
+});
+
+test("scoreSemanticSimilarity logs and uses Ollama when no API key exists and Ollama is reachable", async () => {
+  resetSemanticSimilarityTestState();
+
+  const calls: Array<{ provider: string; input: string; model: string }> = [];
+  const logs: string[] = [];
+  const originalLog = console.log;
+  const originalFetch = globalThis.fetch;
+  console.log = (...args: unknown[]) => {
+    logs.push(args.map((value) => String(value)).join(" "));
+  };
+  globalThis.fetch = async () =>
+    ({
+      status: 200,
+      ok: true,
+      json: async () => ({ models: [] }),
+    }) as Response;
+
+  const factories = createClientFactories(
+    {
+      openai: {},
+      anthropic: {},
+      gemini: {},
+      groq: {},
+      ollama: {
+        actual: [1, 0],
+        expected: [1, 0],
+      },
+    },
+    (provider, input, model) => {
+      calls.push({ provider, input, model });
+    }
+  );
+
+  try {
+    const score = await scoreSemanticSimilarity(
+      "actual",
+      "expected",
+      {
+        OLLAMA_BASE_URL: "http://localhost:11434",
+      },
+      factories
+    );
+
+    assert.equal(score, 1);
+    assert.deepEqual(logs, ["semantic_similarity: using ollama (nomic-embed-text) [local]"]);
+    assert.deepEqual(calls, [
+      {
+        provider: "ollama",
+        input: "actual",
+        model: "nomic-embed-text",
+      },
+      {
+        provider: "ollama",
+        input: "expected",
+        model: "nomic-embed-text",
+      },
+    ]);
+  } finally {
+    console.log = originalLog;
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("scoreSemanticSimilarity warns once and falls back to token overlap when no embedding key is present", async () => {
   resetSemanticSimilarityTestState();
 
   await withConsoleWarnings(async (warnings) => {
-    const firstScore = await scoreSemanticSimilarity("hello world from agentura", "hello world", {});
-    const secondScore = await scoreSemanticSimilarity("hello world from agentura", "hello world", {});
+    const firstScore = await scoreSemanticSimilarity("hello world from agentura", "hello world", {
+      OLLAMA_BASE_URL: "http://127.0.0.1:1",
+    });
+    const secondScore = await scoreSemanticSimilarity("hello world from agentura", "hello world", {
+      OLLAMA_BASE_URL: "http://127.0.0.1:1",
+    });
 
     assert.ok(firstScore > 0 && firstScore < 1);
     assert.equal(secondScore, firstScore);
@@ -229,6 +371,16 @@ test("scoreSemanticSimilarity falls back to token overlap if the embedding reque
         embedContent: async () => ({ embeddings: [{ values: [1] }] }),
       },
     }),
+    groq: () => ({
+      embeddings: {
+        create: async () => ({ data: [{ embedding: [1] }] }),
+      },
+    }),
+    ollama: () => ({
+      embeddings: {
+        create: async () => ({ embedding: [1] }),
+      },
+    }),
   };
 
   await withConsoleWarnings(async (warnings) => {
@@ -251,7 +403,8 @@ test("scoreSemanticSimilarity falls back to token overlap if the embedding reque
 test("scoreSemanticSimilarity handles empty strings without embedding calls", async () => {
   resetSemanticSimilarityTestState();
 
-  assert.equal(await scoreSemanticSimilarity("", "", {}), 1);
-  assert.equal(await scoreSemanticSimilarity("", "non-empty", {}), 0);
-  assert.equal(await scoreSemanticSimilarity("non-empty", "", {}), 0);
+  const env = { OLLAMA_BASE_URL: "http://127.0.0.1:1" };
+  assert.equal(await scoreSemanticSimilarity("", "", env), 1);
+  assert.equal(await scoreSemanticSimilarity("", "non-empty", env), 0);
+  assert.equal(await scoreSemanticSimilarity("non-empty", "", env), 0);
 });

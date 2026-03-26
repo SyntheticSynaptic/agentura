@@ -11,6 +11,7 @@ import yaml from "js-yaml";
 import {
   callCliAgent,
   callHttpAgent,
+  formatLlmJudgeProviderLogMessage,
   callSdkAgent,
   getCaseInput,
   NO_LLM_JUDGE_API_KEY_WARNING,
@@ -1326,7 +1327,7 @@ export async function runLocalCommand(options: LocalRunCommandOptions = {}): Pro
     ? config.evals.filter((suite) => suite.name === options.suite)
     : config.evals;
   const judge = suites.some((suite) => suite.type === "llm_judge")
-    ? resolveLlmJudgeProvider()
+    ? await resolveLlmJudgeProvider()
     : null;
 
   if (suites.length === 0) {
@@ -1339,7 +1340,7 @@ export async function runLocalCommand(options: LocalRunCommandOptions = {}): Pro
 
   console.log(chalk.gray("Running evals locally..."));
   if (judge) {
-    console.log(chalk.gray(`llm_judge: using ${judge.provider} (${judge.model})`));
+    console.log(chalk.gray(formatLlmJudgeProviderLogMessage(judge)));
   }
 
   for (const suite of suites) {

@@ -1,16 +1,29 @@
 import { GoogleGenAI } from "@google/genai";
 import OpenAI from "openai";
+import {
+  getOllamaBaseUrl,
+  getOllamaEmbeddingModel,
+  isOllamaReachable,
+  resetOllamaTestState,
+  type OllamaFetchLike,
+} from "./ollama";
 
-export type SemanticSimilarityProvider = "openai" | "anthropic" | "gemini";
+export type SemanticSimilarityProvider =
+  | "anthropic"
+  | "openai"
+  | "gemini"
+  | "groq"
+  | "ollama";
 
 export interface ResolvedSemanticSimilarityProvider {
   provider: SemanticSimilarityProvider;
   apiKey: string;
   model: string;
+  baseUrl?: string;
 }
 
 export const NO_EMBEDDING_API_KEY_WARNING =
-  "semantic_similarity scorer: set OPENAI_API_KEY, ANTHROPIC_API_KEY, or GEMINI_API_KEY to use embedding-based similarity; falling back to token overlap";
+  "semantic_similarity scorer: set ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY, or GROQ_API_KEY, or install Ollama (https://ollama.com) to use embedding-based similarity; falling back to token overlap";
 
 interface OpenAIEmbeddingResponse {
   data?: Array<{
@@ -43,6 +56,20 @@ interface GeminiEmbeddingClientLike {
   };
 }
 
+interface OllamaEmbeddingResponse {
+  embedding?: number[];
+  embeddings?: number[][];
+}
+
+interface OllamaEmbeddingClientLike {
+  embeddings: {
+    create(params: {
+      model: string;
+      prompt: string;
+    }): Promise<OllamaEmbeddingResponse>;
+  };
+}
+
 interface VoyageEmbeddingResponse {
   data?: Array<{
     embedding?: number[];
@@ -61,11 +88,15 @@ interface AnthropicEmbeddingClientLike {
 type OpenAIEmbeddingClientFactory = (apiKey: string) => OpenAIEmbeddingClientLike;
 type GeminiEmbeddingClientFactory = (apiKey: string) => GeminiEmbeddingClientLike;
 type AnthropicEmbeddingClientFactory = (apiKey: string) => AnthropicEmbeddingClientLike;
+type GroqEmbeddingClientFactory = (apiKey: string) => OpenAIEmbeddingClientLike;
+type OllamaEmbeddingClientFactory = (baseUrl: string) => OllamaEmbeddingClientLike;
 
 export interface SemanticSimilarityClientFactories {
   openai: OpenAIEmbeddingClientFactory;
   anthropic: AnthropicEmbeddingClientFactory;
   gemini: GeminiEmbeddingClientFactory;
+  groq: GroqEmbeddingClientFactory;
+  ollama: OllamaEmbeddingClientFactory;
 }
 
 const defaultOpenAIClientFactory: OpenAIEmbeddingClientFactory = (apiKey) =>
@@ -73,6 +104,12 @@ const defaultOpenAIClientFactory: OpenAIEmbeddingClientFactory = (apiKey) =>
 
 const defaultGeminiClientFactory: GeminiEmbeddingClientFactory = (apiKey) =>
   new GoogleGenAI({ apiKey }) as unknown as GeminiEmbeddingClientLike;
+
+const defaultGroqClientFactory: GroqEmbeddingClientFactory = (apiKey) =>
+  new OpenAI({
+    apiKey,
+    baseURL: "https://api.groq.com/openai/v1",
+  }) as unknown as OpenAIEmbeddingClientLike;
 
 const defaultAnthropicClientFactory: AnthropicEmbeddingClientFactory = (apiKey) => ({
   embeddings: {
@@ -101,37 +138,76 @@ const defaultAnthropicClientFactory: AnthropicEmbeddingClientFactory = (apiKey) 
   },
 });
 
+const defaultOllamaClientFactory: OllamaEmbeddingClientFactory = (baseUrl) => ({
+  embeddings: {
+    create: async ({ model, prompt }) => {
+      const response = await fetch(`${baseUrl}/api/embeddings`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          prompt,
+        }),
+      });
+
+      if (!response.ok) {
+        const responseText = await response.text();
+        throw new Error(
+          `Ollama embeddings request failed: ${response.status} ${response.statusText} ${responseText}`.trim()
+        );
+      }
+
+      return (await response.json()) as OllamaEmbeddingResponse;
+    },
+  },
+});
+
 const defaultClientFactories: SemanticSimilarityClientFactories = {
   openai: defaultOpenAIClientFactory,
   anthropic: defaultAnthropicClientFactory,
   gemini: defaultGeminiClientFactory,
+  groq: defaultGroqClientFactory,
+  ollama: defaultOllamaClientFactory,
 };
 
 const EMBEDDING_PROVIDER_PRIORITY: Array<{
   provider: SemanticSimilarityProvider;
-  envVar: "OPENAI_API_KEY" | "ANTHROPIC_API_KEY" | "GEMINI_API_KEY";
+  envVar: "ANTHROPIC_API_KEY" | "OPENAI_API_KEY" | "GEMINI_API_KEY" | "GROQ_API_KEY";
   model: string;
 }> = [
-  {
-    provider: "openai",
-    envVar: "OPENAI_API_KEY",
-    model: "text-embedding-3-small",
-  },
   {
     provider: "anthropic",
     envVar: "ANTHROPIC_API_KEY",
     model: "voyage-3",
   },
   {
+    provider: "openai",
+    envVar: "OPENAI_API_KEY",
+    model: "text-embedding-3-small",
+  },
+  {
     provider: "gemini",
     envVar: "GEMINI_API_KEY",
     model: "text-embedding-004",
+  },
+  {
+    provider: "groq",
+    envVar: "GROQ_API_KEY",
+    model: "text-embedding-3-small",
   },
 ];
 
 const embeddingCache = new Map<string, Promise<number[]>>();
 let missingProviderWarningShown = false;
 const providerFailureWarningsShown = new Set<SemanticSimilarityProvider>();
+let ollamaSelectionLogShown = false;
+
+export interface SemanticSimilarityResolverOptions {
+  fetchImpl?: OllamaFetchLike;
+  ollamaAvailable?: boolean;
+}
 
 function tokenize(text: string): Set<string> {
   const tokens = text.toLowerCase().match(/[a-z0-9]+/g);
@@ -248,6 +324,35 @@ async function fetchGeminiEmbedding(
   return readEmbedding(response.embeddings?.[0]?.values, provider.provider);
 }
 
+async function fetchGroqEmbedding(
+  provider: ResolvedSemanticSimilarityProvider,
+  text: string,
+  clientFactories: SemanticSimilarityClientFactories
+): Promise<number[]> {
+  const client = clientFactories.groq(provider.apiKey);
+  const response = await client.embeddings.create({
+    model: provider.model,
+    input: text,
+    encoding_format: "float",
+  });
+
+  return readEmbedding(response.data?.[0]?.embedding, provider.provider);
+}
+
+async function fetchOllamaEmbedding(
+  provider: ResolvedSemanticSimilarityProvider,
+  text: string,
+  clientFactories: SemanticSimilarityClientFactories
+): Promise<number[]> {
+  const client = clientFactories.ollama(provider.baseUrl ?? getOllamaBaseUrl());
+  const response = await client.embeddings.create({
+    model: provider.model,
+    prompt: text,
+  });
+
+  return readEmbedding(response.embedding ?? response.embeddings?.[0], provider.provider);
+}
+
 async function fetchEmbedding(
   provider: ResolvedSemanticSimilarityProvider,
   text: string,
@@ -261,7 +366,15 @@ async function fetchEmbedding(
     return fetchAnthropicEmbedding(provider, text, clientFactories);
   }
 
-  return fetchGeminiEmbedding(provider, text, clientFactories);
+  if (provider.provider === "gemini") {
+    return fetchGeminiEmbedding(provider, text, clientFactories);
+  }
+
+  if (provider.provider === "groq") {
+    return fetchGroqEmbedding(provider, text, clientFactories);
+  }
+
+  return fetchOllamaEmbedding(provider, text, clientFactories);
 }
 
 async function getCachedEmbedding(
@@ -284,9 +397,10 @@ async function getCachedEmbedding(
   return embeddingPromise;
 }
 
-export function resolveSemanticSimilarityProvider(
-  env: Record<string, string | undefined> = process.env
-): ResolvedSemanticSimilarityProvider | null {
+export async function resolveSemanticSimilarityProvider(
+  env: Record<string, string | undefined> = process.env,
+  options: SemanticSimilarityResolverOptions = {}
+): Promise<ResolvedSemanticSimilarityProvider | null> {
   for (const candidate of EMBEDDING_PROVIDER_PRIORITY) {
     const apiKey = env[candidate.envVar]?.trim();
     if (apiKey) {
@@ -298,6 +412,20 @@ export function resolveSemanticSimilarityProvider(
     }
   }
 
+  const ollamaAvailable =
+    typeof options.ollamaAvailable === "boolean"
+      ? options.ollamaAvailable
+      : await isOllamaReachable(env, options.fetchImpl);
+
+  if (ollamaAvailable) {
+    return {
+      provider: "ollama",
+      apiKey: "",
+      model: getOllamaEmbeddingModel(env),
+      baseUrl: getOllamaBaseUrl(env),
+    };
+  }
+
   return null;
 }
 
@@ -305,6 +433,8 @@ export function resetSemanticSimilarityTestState(): void {
   embeddingCache.clear();
   missingProviderWarningShown = false;
   providerFailureWarningsShown.clear();
+  ollamaSelectionLogShown = false;
+  resetOllamaTestState();
 }
 
 export async function scoreSemanticSimilarity(
@@ -321,7 +451,7 @@ export async function scoreSemanticSimilarity(
     return 0;
   }
 
-  const provider = resolveSemanticSimilarityProvider(env);
+  const provider = await resolveSemanticSimilarityProvider(env);
   if (!provider) {
     if (!missingProviderWarningShown) {
       console.warn(NO_EMBEDDING_API_KEY_WARNING);
@@ -329,6 +459,11 @@ export async function scoreSemanticSimilarity(
     }
 
     return fallbackTokenOverlapScore(output, expected);
+  }
+
+  if (provider.provider === "ollama" && !ollamaSelectionLogShown) {
+    console.log(`semantic_similarity: using ollama (${provider.model}) [local]`);
+    ollamaSelectionLogShown = true;
   }
 
   const [outputEmbedding, expectedEmbedding] = await Promise.all([

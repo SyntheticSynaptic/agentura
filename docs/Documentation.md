@@ -2100,3 +2100,40 @@ Milestone G — continue the eval-system follow-up work, or extend audit metadat
 
 **Next session:**
 Milestone 18 — resume the pending `agentura generate` end-to-end validation work, or continue with the next requested documentation and packaging updates.
+
+## Session — 2026-03-26 13:21 UTC
+
+**Milestone:** 18 — CLI: agentura generate
+**Status:** IN PROGRESS
+
+**Files created:**
+- `packages/eval-runner/src/scorers/ollama.ts` — shared Ollama reachability and default-model helper for judge and embedding scorers
+
+**Files modified:**
+- `packages/eval-runner/src/scorers/llm-judge-scorer.ts` — added async Ollama-aware provider resolution, Ollama `/api/chat` support, and provider log formatting
+- `packages/eval-runner/src/scorers/semantic-similarity.ts` — added Anthropic-first provider order, Groq embeddings path, Ollama `/api/embeddings` support, and the updated fallback warning text
+- `packages/eval-runner/src/scorers/llm-judge-scorer.test.ts` — covered Ollama resolver and local judge scoring paths
+- `packages/eval-runner/src/scorers/semantic-similarity.test.ts` — covered Anthropic-first selection, Groq embeddings, Ollama embeddings, and deterministic no-provider fallback behavior
+- `packages/eval-runner/src/index.ts` — re-exported the new shared resolver and log helpers
+- `packages/cli/src/lib/local-run.ts` — awaited async judge provider detection and reused the exact Ollama log message
+- `packages/cli/src/commands/run.test.ts` — made Ollama-related CLI tests deterministic and replaced a stale hard-coded CLI version assertion with a package.json lookup
+- `apps/worker/src/queue-handlers/eval-run.ts` — switched worker judge selection from Groq-only to shared provider auto-detection, including Ollama
+- `apps/worker/src/index.ts` — removed the hard OpenAI requirement and added generic provider availability warnings for judge and semantic similarity
+- `README.md` — documented Ollama auto-detection and added the local-inference comparison row
+- `docs/self-hosting.md` — added a “Local inference with Ollama” setup section
+- `docs/Documentation.md` — appended this session entry
+
+**Decisions made:**
+- Added a shared Ollama helper instead of duplicating localhost detection logic in two scorers so provider ordering, base URL handling, and default model names stay aligned.
+- Implemented Groq embeddings through the OpenAI-compatible Groq base URL so semantic similarity now follows the requested Anthropic → OpenAI → Gemini → Groq → Ollama resolution order.
+- Updated the CLI baseline-manifest test to read the package version dynamically so routine version bumps do not break unrelated verification runs.
+
+**Validation results:**
+- `pnpm type-check`: PASS
+- `pnpm test`: PASS
+
+**Issues found:**
+- `pnpm test` initially failed in `packages/cli/src/commands/run.test.ts` because the test expected CLI version `0.1.2` while `packages/cli/package.json` is `0.1.3`; fixed by reading the version from package.json.
+
+**Next session:**
+Milestone 18 — run the remaining manual `agentura generate` E2E checks and then advance to Milestone 19 dashboard polish.

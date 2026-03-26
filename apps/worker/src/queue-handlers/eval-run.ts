@@ -2,7 +2,9 @@ import { Prisma, prisma } from "@agentura/db";
 import {
   callCliAgent,
   callHttpAgent,
+  formatLlmJudgeProviderLogMessage,
   getCaseInput,
+  resolveLlmJudgeProvider,
   runGoldenDataset,
   runLlmJudge,
   runPerformance,
@@ -64,20 +66,6 @@ const PLAN_LIMITS = {
   indie: { repos: 5 },
   pro: { repos: -1 },
 } as const;
-
-function hasUsableGroqApiKey(): boolean {
-  const value = process.env.GROQ_API_KEY;
-  if (!value) {
-    return false;
-  }
-
-  const normalized = value.trim().toLowerCase();
-  return normalized.length > 0 && normalized !== "placeholder";
-}
-
-function getGroqApiKey(): string | null {
-  return hasUsableGroqApiKey() ? process.env.GROQ_API_KEY ?? null : null;
-}
 
 function normalizeRepoPath(path: string): string {
   return path.replace(/^\.\//, "").trim();
@@ -431,7 +419,10 @@ Upgrade to Indie ($20/mo) for 5 repos at ${BILLING_PRICING_URL}
 
     const agentFn = createAgentFunction(config.agent);
     const suiteResults: SuiteRunResult[] = [];
-    const groqApiKey = getGroqApiKey();
+    const judgeProvider =
+      config.evals.some((suite) => suite.type === "llm_judge")
+        ? await resolveLlmJudgeProvider()
+        : null;
 
     const goldenSuites = config.evals.filter((suite) => suite.type === "golden_dataset");
     const llmJudgeSuites = config.evals.filter((suite) => suite.type === "llm_judge");
@@ -453,8 +444,8 @@ Upgrade to Indie ($20/mo) for 5 repos at ${BILLING_PRICING_URL}
     }
 
     for (const suite of llmJudgeSuites) {
-      if (!groqApiKey) {
-        console.log(`Skipping llm_judge suite ${suite.name}: GROQ_API_KEY not configured`);
+      if (!judgeProvider) {
+        console.log(`Skipping llm_judge suite ${suite.name}: no judge provider configured`);
         continue;
       }
 
@@ -463,8 +454,9 @@ Upgrade to Indie ($20/mo) for 5 repos at ${BILLING_PRICING_URL}
         continue;
       }
 
+      console.log(formatLlmJudgeProviderLogMessage(judgeProvider));
       console.log(
-        `Running llm_judge suite: ${suite.name} with judge_model=llama-3.1-8b-instant across ${String(suite.runs ?? 1)} runs`
+        `Running llm_judge suite: ${suite.name} with judge_model=${judgeProvider.model} across ${String(suite.runs ?? 1)} runs`
       );
       const rubricPath = normalizeRepoPath(suite.rubric);
       const datasetPath = normalizeRepoPath(suite.dataset);
@@ -477,11 +469,7 @@ Upgrade to Indie ($20/mo) for 5 repos at ${BILLING_PRICING_URL}
           threshold: suite.threshold,
           runs: suite.runs,
           agentFn,
-          judge: {
-            provider: "groq",
-            model: "llama-3.1-8b-instant",
-            apiKey: groqApiKey,
-          },
+          judge: judgeProvider,
         },
         cases,
         rubric

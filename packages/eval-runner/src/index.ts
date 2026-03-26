@@ -12,10 +12,15 @@ export { scoreContains } from "./scorers/contains";
 export { scoreExactMatch } from "./scorers/exact-match";
 export {
   NO_LLM_JUDGE_API_KEY_WARNING,
+  formatLlmJudgeProviderLogMessage,
   resolveLlmJudgeProvider,
   scoreLlmJudge,
 } from "./scorers/llm-judge-scorer";
-export { scoreSemanticSimilarity } from "./scorers/semantic-similarity";
+export {
+  NO_EMBEDDING_API_KEY_WARNING,
+  resolveSemanticSimilarityProvider,
+  scoreSemanticSimilarity,
+} from "./scorers/semantic-similarity";
 
 export { runGoldenDataset } from "./strategies/golden-dataset";
 export { runLlmJudge } from "./strategies/llm-judge";
@@ -42,3 +47,7 @@ export type {
   LlmJudgeProvider,
   ResolvedLlmJudgeProvider,
 } from "./scorers/llm-judge-scorer";
+export type {
+  ResolvedSemanticSimilarityProvider,
+  SemanticSimilarityProvider,
+} from "./scorers/semantic-similarity";

@@ -255,6 +255,8 @@ ci:
     OPENAI_API_KEY: null,
     ANTHROPIC_API_KEY: null,
     GEMINI_API_KEY: null,
+    GROQ_API_KEY: null,
+    OLLAMA_BASE_URL: "http://127.0.0.1:1",
   });
   const output = stripAnsi(result.output);
 
@@ -489,6 +491,7 @@ ci:
     baselineSaved: boolean;
     summary: { regressions: number; improvements: number; newCases: number; missingCases: number };
   }>(path.join(directory, ".agentura", "diff.json"));
+  const cliPackage = await readJson<{ version: string }>(path.resolve(__dirname, "..", "..", "package.json"));
 
   assert.equal(baseline.version, 1);
   assert.equal(baseline.commit, null);
@@ -507,7 +510,7 @@ ci:
   assert.match(manifest.run_id, /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
   assert.match(manifest.timestamp, /^\d{4}-\d{2}-\d{2}T/);
   assert.equal(manifest.commit, null);
-  assert.equal(manifest.cli_version, "0.1.2");
+  assert.equal(manifest.cli_version, cliPackage.version);
   assert.deepEqual(manifest.suites, [
     {
       name: "accuracy",
@@ -918,12 +921,13 @@ ci:
     OPENAI_API_KEY: null,
     GEMINI_API_KEY: null,
     GROQ_API_KEY: null,
+    OLLAMA_BASE_URL: "http://127.0.0.1:1",
   });
   const output = stripAnsi(result.output);
 
   assert.equal(result.code, 0);
   assert.match(
     output,
-    /llm_judge suites skipped: set ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY, or GROQ_API_KEY to run them/
+    /llm_judge suites skipped: set ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY, or GROQ_API_KEY, or install Ollama \(https:\/\/ollama\.com\) to run them/
   );
 });

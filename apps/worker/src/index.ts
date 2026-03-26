@@ -2,6 +2,10 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { Worker } from "bullmq";
 import Redis from "ioredis";
+import {
+  resolveLlmJudgeProvider,
+  resolveSemanticSimilarityProvider,
+} from "@agentura/eval-runner";
 import { handleEvalRunJob, type EvalRunJobPayload } from "./queue-handlers/eval-run";
 
 const REQUIRED_ENV_VARS = [
@@ -10,7 +14,6 @@ const REQUIRED_ENV_VARS = [
   "UPSTASH_REDIS_URL",
   "GITHUB_APP_ID",
   "GITHUB_APP_PRIVATE_KEY",
-  "OPENAI_API_KEY",
 ] as const;
 
 function loadEnvFileIfPresent(): void {
@@ -51,13 +54,18 @@ function assertRequiredEnvVars(): void {
   }
 }
 
-function warnIfGroqApiKeyMissing(): void {
-  const raw = process.env.GROQ_API_KEY;
-  const normalized = raw?.trim().toLowerCase() ?? "";
-
-  if (!normalized || normalized === "placeholder") {
+async function warnIfInferenceProvidersMissing(): Promise<void> {
+  const llmJudgeProvider = await resolveLlmJudgeProvider();
+  if (!llmJudgeProvider) {
     console.warn(
-      "[worker] GROQ_API_KEY is not configured. llm_judge suites will be skipped."
+      "[worker] No llm_judge provider configured. Suites will be skipped unless an API key is set or Ollama is running."
+    );
+  }
+
+  const semanticSimilarityProvider = await resolveSemanticSimilarityProvider();
+  if (!semanticSimilarityProvider) {
+    console.warn(
+      "[worker] No semantic_similarity provider configured. Embedding-based similarity will fall back to token overlap unless an API key is set or Ollama is running."
     );
   }
 }
@@ -70,7 +78,7 @@ async function startWorker(): Promise<void> {
   );
   console.log("[debug] NODE_ENV:", process.env.NODE_ENV);
   assertRequiredEnvVars();
-  warnIfGroqApiKeyMissing();
+  await warnIfInferenceProvidersMissing();
 
   const redisUrl = process.env.UPSTASH_REDIS_URL;
   if (!redisUrl) {

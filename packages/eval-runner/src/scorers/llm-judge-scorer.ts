@@ -2,22 +2,29 @@ import Anthropic from "@anthropic-ai/sdk";
 import { GoogleGenAI } from "@google/genai";
 import Groq from "groq-sdk";
 import OpenAI from "openai";
+import {
+  getOllamaBaseUrl,
+  getOllamaJudgeModel,
+  isOllamaReachable,
+  type OllamaFetchLike,
+} from "./ollama";
 
 export interface LlmJudgeScore {
   score: number;
   reason: string;
 }
 
-export type LlmJudgeProvider = "anthropic" | "openai" | "gemini" | "groq";
+export type LlmJudgeProvider = "anthropic" | "openai" | "gemini" | "groq" | "ollama";
 
 export interface ResolvedLlmJudgeProvider {
   provider: LlmJudgeProvider;
   apiKey: string;
   model: string;
+  baseUrl?: string;
 }
 
 export const NO_LLM_JUDGE_API_KEY_WARNING =
-  "llm_judge suites skipped: set ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY, or GROQ_API_KEY to run them";
+  "llm_judge suites skipped: set ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY, or GROQ_API_KEY, or install Ollama (https://ollama.com) to run them";
 
 interface AnthropicMessageResponse {
   content?: Array<{
@@ -90,16 +97,33 @@ interface GroqClientLike {
   };
 }
 
+interface OllamaChatResponse {
+  message?: {
+    content?: string;
+  };
+}
+
+interface OllamaClientLike {
+  chat(params: {
+    model: string;
+    temperature: number;
+    max_tokens: number;
+    messages: Array<{ role: "system" | "user"; content: string }>;
+  }): Promise<OllamaChatResponse>;
+}
+
 type AnthropicClientFactory = (apiKey: string) => AnthropicClientLike;
 type OpenAIClientFactory = (apiKey: string) => OpenAIClientLike;
 type GeminiClientFactory = (apiKey: string) => GeminiClientLike;
 type GroqClientFactory = (apiKey: string) => GroqClientLike;
+type OllamaClientFactory = (baseUrl: string) => OllamaClientLike;
 
 export interface LlmJudgeClientFactories {
   anthropic: AnthropicClientFactory;
   openai: OpenAIClientFactory;
   gemini: GeminiClientFactory;
   groq: GroqClientFactory;
+  ollama: OllamaClientFactory;
 }
 
 const defaultAnthropicClientFactory: AnthropicClientFactory = (apiKey) =>
@@ -114,11 +138,41 @@ const defaultGeminiClientFactory: GeminiClientFactory = (apiKey) =>
 const defaultGroqClientFactory: GroqClientFactory = (apiKey) =>
   new Groq({ apiKey }) as unknown as GroqClientLike;
 
+const defaultOllamaClientFactory: OllamaClientFactory = (baseUrl) => ({
+  chat: async ({ model, temperature, max_tokens, messages }) => {
+    const response = await fetch(`${baseUrl}/api/chat`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        stream: false,
+        options: {
+          temperature,
+          num_predict: max_tokens,
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const responseText = await response.text();
+      throw new Error(
+        `Ollama chat request failed: ${response.status} ${response.statusText} ${responseText}`.trim()
+      );
+    }
+
+    return (await response.json()) as OllamaChatResponse;
+  },
+});
+
 const defaultClientFactories: LlmJudgeClientFactories = {
   anthropic: defaultAnthropicClientFactory,
   openai: defaultOpenAIClientFactory,
   gemini: defaultGeminiClientFactory,
   groq: defaultGroqClientFactory,
+  ollama: defaultOllamaClientFactory,
 };
 
 const JUDGE_PROVIDER_PRIORITY: Array<{
@@ -147,6 +201,11 @@ const JUDGE_PROVIDER_PRIORITY: Array<{
     model: "llama-3.1-8b-instant",
   },
 ];
+
+export interface LlmJudgeResolverOptions {
+  fetchImpl?: OllamaFetchLike;
+  ollamaAvailable?: boolean;
+}
 
 function clampScore(score: number): number {
   if (!Number.isFinite(score)) {
@@ -223,9 +282,18 @@ function extractAnthropicText(response: AnthropicMessageResponse): string | null
   return textBlock?.text?.trim() || null;
 }
 
-export function resolveLlmJudgeProvider(
-  env: Record<string, string | undefined> = process.env
-): ResolvedLlmJudgeProvider | null {
+export function formatLlmJudgeProviderLogMessage(judge: ResolvedLlmJudgeProvider): string {
+  if (judge.provider === "ollama") {
+    return `llm_judge: using ollama (${judge.model}) [local]`;
+  }
+
+  return `llm_judge: using ${judge.provider} (${judge.model})`;
+}
+
+export async function resolveLlmJudgeProvider(
+  env: Record<string, string | undefined> = process.env,
+  options: LlmJudgeResolverOptions = {}
+): Promise<ResolvedLlmJudgeProvider | null> {
   for (const candidate of JUDGE_PROVIDER_PRIORITY) {
     const apiKey = env[candidate.envVar]?.trim();
     if (apiKey) {
@@ -235,6 +303,20 @@ export function resolveLlmJudgeProvider(
         model: candidate.model,
       };
     }
+  }
+
+  const ollamaAvailable =
+    typeof options.ollamaAvailable === "boolean"
+      ? options.ollamaAvailable
+      : await isOllamaReachable(env, options.fetchImpl);
+
+  if (ollamaAvailable) {
+    return {
+      provider: "ollama",
+      apiKey: "",
+      model: getOllamaJudgeModel(env),
+      baseUrl: getOllamaBaseUrl(env),
+    };
   }
 
   return null;
@@ -302,6 +384,26 @@ export async function scoreLlmJudge(
       });
 
       const responseText = response.text?.trim();
+      if (!responseText) {
+        return { score: 0, reason: "Judge response parse error" };
+      }
+
+      return parseJudgeJson(responseText);
+    }
+
+    if (judge.provider === "ollama") {
+      const client = clientFactories.ollama(judge.baseUrl ?? getOllamaBaseUrl());
+      const response = await client.chat({
+        model: judge.model,
+        temperature: 0,
+        max_tokens: 1024,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+      });
+
+      const responseText = response.message?.content?.trim();
       if (!responseText) {
         return { score: 0, reason: "Judge response parse error" };
       }

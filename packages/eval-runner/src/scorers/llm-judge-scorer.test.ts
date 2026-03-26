@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   NO_LLM_JUDGE_API_KEY_WARNING,
+  formatLlmJudgeProviderLogMessage,
   resolveLlmJudgeProvider,
   scoreLlmJudge,
   type LlmJudgeClientFactories,
@@ -77,6 +78,16 @@ function createClientFactories(
         },
       },
     }),
+    ollama: () => ({
+      chat: async (params) => {
+        calls.push({ provider: "ollama", model: params.model });
+        return {
+          message: {
+            content: responseText,
+          },
+        };
+      },
+    }),
   };
 }
 
@@ -91,13 +102,16 @@ function createJudge(
   };
 }
 
-test("resolveLlmJudgeProvider prioritizes anthropic over other provider keys", () => {
-  const judge = resolveLlmJudgeProvider({
+test("resolveLlmJudgeProvider prioritizes anthropic over other provider keys", async () => {
+  const judge = await resolveLlmJudgeProvider(
+    {
     ANTHROPIC_API_KEY: "anthropic-key",
     OPENAI_API_KEY: "openai-key",
     GEMINI_API_KEY: "gemini-key",
     GROQ_API_KEY: "groq-key",
-  });
+    },
+    { ollamaAvailable: true }
+  );
 
   assert.deepEqual(judge, {
     provider: "anthropic",
@@ -106,11 +120,29 @@ test("resolveLlmJudgeProvider prioritizes anthropic over other provider keys", (
   });
 });
 
-test("resolveLlmJudgeProvider returns null and keeps the exact warning text when no key exists", () => {
-  assert.equal(resolveLlmJudgeProvider({}), null);
+test("resolveLlmJudgeProvider falls back to Ollama when no remote provider key exists", async () => {
+  const judge = await resolveLlmJudgeProvider(
+    {
+      OLLAMA_MODEL: "llama3.2",
+      OLLAMA_BASE_URL: "http://localhost:11434",
+    },
+    { ollamaAvailable: true }
+  );
+
+  assert.deepEqual(judge, {
+    provider: "ollama",
+    apiKey: "",
+    model: "llama3.2",
+    baseUrl: "http://localhost:11434",
+  });
+  assert.equal(formatLlmJudgeProviderLogMessage(judge), "llm_judge: using ollama (llama3.2) [local]");
+});
+
+test("resolveLlmJudgeProvider returns null and keeps the exact warning text when no provider exists", async () => {
+  assert.equal(await resolveLlmJudgeProvider({}, { ollamaAvailable: false }), null);
   assert.equal(
     NO_LLM_JUDGE_API_KEY_WARNING,
-    "llm_judge suites skipped: set ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY, or GROQ_API_KEY to run them"
+    "llm_judge suites skipped: set ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY, or GROQ_API_KEY, or install Ollama (https://ollama.com) to run them"
   );
 });
 
@@ -163,6 +195,26 @@ test("scoreLlmJudge uses the gemini client and configured model", async () => {
   assert.equal(result.score, 0.6);
   assert.equal(result.reason, "Adequate.");
   assert.deepEqual(calls, [{ provider: "gemini", model: "gemini-2.0-flash" }]);
+});
+
+test("scoreLlmJudge uses the ollama client and configured model", async () => {
+  const calls: Array<{ provider: string; model: string }> = [];
+
+  const result = await scoreLlmJudge(
+    "Question",
+    "Answer",
+    "Rubric",
+    {
+      ...createJudge("ollama", "llama3.2"),
+      baseUrl: "http://localhost:11434",
+    },
+    undefined,
+    createClientFactories('{"score":0.88,"reason":"Local model passed."}', calls)
+  );
+
+  assert.equal(result.score, 0.88);
+  assert.equal(result.reason, "Local model passed.");
+  assert.deepEqual(calls, [{ provider: "ollama", model: "llama3.2" }]);
 });
 
 test("scoreLlmJudge returns parse error on invalid JSON", async () => {
