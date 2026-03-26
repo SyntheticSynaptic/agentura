@@ -1,0 +1,58 @@
+{
+  "run_id": "3175b74b-7fe2-453d-9d5a-90496d2290d8",
+  "timestamp": "2026-03-26T22:42:54.066Z",
+  "commit": "10cffd1100adaa0c3aa29bd12ef83631d2ccded4",
+  "cli_version": "0.1.3",
+  "suites": [
+    {
+      "name": "accuracy",
+      "strategy": "golden_dataset",
+      "scorer": "semantic_similarity",
+      "dataset_hash": "sha256:5328501b635a19b4c522d16b72ac4f00599862ace0a1eca5f3c3075ac055b2ec",
+      "case_count": 1,
+      "score": 0.9966427670700545,
+      "passed": true,
+      "judge_model": null
+    },
+    {
+      "name": "edge_cases",
+      "strategy": "golden_dataset",
+      "scorer": "contains",
+      "dataset_hash": "sha256:418e9b0d82f4a8a2716472d0ccc09f5e9743f96e6b40a14e8578abb159549595",
+      "case_count": 1,
+      "score": 1,
+      "passed": true,
+      "judge_model": null
+    },
+    {
+      "name": "tool_use",
+      "strategy": "golden_dataset",
+      "scorer": "contains",
+      "dataset_hash": "sha256:881cbce961597e18fb28338751360976f838d50f08a1afb1838c8011fb801088",
+      "case_count": 1,
+      "score": 1,
+      "passed": true,
+      "judge_model": null
+    },
+    {
+      "name": "hallucination",
+      "strategy": "golden_dataset",
+      "scorer": "contains",
+      "dataset_hash": "sha256:04a54fb5d8b500560a425d85fc0d5f2c80a403457747241a6be7ad732e6f3b96",
+      "case_count": 1,
+      "score": 0,
+      "passed": false,
+      "judge_model": null
+    },
+    {
+      "name": "out_of_scope",
+      "strategy": "golden_dataset",
+      "scorer": "contains",
+      "dataset_hash": "sha256:996ce4dc861e409fbabafdff0aed37cfa112068dbbe4c6505916b9a24e59218e",
+      "case_count": 1,
+      "score": 0,
+      "passed": false,
+      "judge_model": null
+    }
+  ]
+}

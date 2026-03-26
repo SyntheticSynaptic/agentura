@@ -3,11 +3,8 @@ Set Theme "Builtin Dark"
 Set FontSize 18
 Set Width 1200
 Set Height 600
-Set TypingSpeed 50ms
+Set TypingSpeed 40ms
 
-Type "cd examples/demo-agent"
+Type "cd examples/demo-agent && node ../../packages/cli/dist/index.js run --local"
 Enter
-Sleep 1s
-Type "node ../../packages/cli/dist/index.js run --local"
-Enter
-Sleep 3s
+Sleep 8s

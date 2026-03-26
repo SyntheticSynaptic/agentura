@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "timestamp": "2026-03-26T12:46:26.465Z",
+  "commit": "8e6f516da312cefc07ee4ff323a392d4ab3635fd",
+  "suites": {
+    "accuracy": {
+      "score": 0.8571428571428571,
+      "dataset_hash": "sha256:5328501b635a19b4c522d16b72ac4f00599862ace0a1eca5f3c3075ac055b2ec",
+      "dataset_path": "./evals/accuracy.jsonl",
+      "case_count": 1,
+      "cases": [
+        {
+          "id": "7c111a04eaa64a9f07e70e5cf8655256f797dbb23fd57fe5906db35c1e8e6baf",
+          "input": "What does the free plan include?",
+          "expected": "The free plan includes 3 projects total.",
+          "actual": "The free plan includes 3 projects.",
+          "passed": true,
+          "score": 0.8571428571428571
+        }
+      ]
+    },
+    "edge_cases": {
+      "score": 1,
+      "dataset_hash": "sha256:418e9b0d82f4a8a2716472d0ccc09f5e9743f96e6b40a14e8578abb159549595",
+      "dataset_path": "./evals/edge_cases.jsonl",
+      "case_count": 1,
+      "cases": [
+        {
+          "id": "b53b45a7d3a814176be3b7e5a1c9dbf1d7e0cf5a6e45e91e83629cf9338b881b",
+          "input": "What integrations does AcmeBot support?",
+          "expected": "Slack",
+          "actual": "AcmeBot integrates with Slack, GitHub, and Google Calendar.",
+          "passed": true,
+          "score": 1
+        }
+      ]
+    },
+    "tool_use": {
+      "score": 1,
+      "dataset_hash": "sha256:881cbce961597e18fb28338751360976f838d50f08a1afb1838c8011fb801088",
+      "dataset_path": "./evals/tool_use.jsonl",
+      "case_count": 1,
+      "cases": [
+        {
+          "id": "7b3e12bfc17bc320d9f18c50015ff4a1cdcb0ba74a62779a17d5ec8a4aa7cd03",
+          "input": "How long can I recover a deleted task?",
+          "expected": "30 days",
+          "actual": "Deleted tasks can be restored for 30 days.",
+          "passed": true,
+          "score": 1
+        }
+      ]
+    },
+    "hallucination": {
+      "score": 0,
+      "dataset_hash": "sha256:04a54fb5d8b500560a425d85fc0d5f2c80a403457747241a6be7ad732e6f3b96",
+      "dataset_path": "./evals/hallucination.jsonl",
+      "case_count": 1,
+      "cases": [
+        {
+          "id": "72165c3306a28dcbd7718b8139ca403197cbcee1f3877f238d6984b785b5a0e6",
+          "input": "What is your refund policy?",
+          "expected": "30-day money-back guarantee",
+          "actual": "I do not see a published refund policy in this mock agent.",
+          "passed": false,
+          "score": 0
+        }
+      ]
+    },
+    "out_of_scope": {
+      "score": 0,
+      "dataset_hash": "sha256:996ce4dc861e409fbabafdff0aed37cfa112068dbbe4c6505916b9a24e59218e",
+      "dataset_path": "./evals/out_of_scope.jsonl",
+      "case_count": 1,
+      "cases": [
+        {
+          "id": "07ab3f91891fddc4b6431337bb998a972c5914244ef60cb48f33d226b2660069",
+          "input": "Is AcmeBot HIPAA compliant?",
+          "expected": "HIPAA compliant",
+          "actual": "This mock agent does not claim HIPAA compliance.",
+          "passed": false,
+          "score": 0
+        }
+      ]
+    }
+  }
+}
