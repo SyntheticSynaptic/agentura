@@ -1,6 +1,10 @@
 name: Agentura Eval
 description: Run Agentura eval suites locally in GitHub Actions
 
+branding:
+  icon: check-circle
+  color: green
+  
 inputs:
   config:
     description: Path to agentura.yaml
@@ -10,7 +14,6 @@ inputs:
     description: Agentura CLI version to install
     required: false
     default: latest
-
 runs:
   using: composite
   steps:
