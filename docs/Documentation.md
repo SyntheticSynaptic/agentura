@@ -2301,3 +2301,31 @@ Milestone 19 — continue the remaining dashboard/settings polish work and revis
 
 **Next session:**
 Milestone 19 — reconcile the remaining in-app docs pages and worker-side config parsing that still reference older scorer or performance terminology.
+
+## Session — 2026-03-27 05:46 UTC
+
+**Milestone:** 19 — Dashboard Polish + Settings
+**Status:** COMPLETE
+
+**Files created:**
+- None
+
+**Files modified:**
+- `packages/cli/src/commands/run.test.ts` — added CLI coverage proving `agentura.yaml` supports YAML anchors and aliases through the real local config loader
+- `docs/strategies.md` — added a concrete `contains` scorer example and clarified when to use it over `exact_match`
+- `docs/agentura-yaml.md` — documented `contains` with a required-phrase example and added a short YAML anchors tip
+- `docs/Documentation.md` — appended this session summary
+
+**Decisions made:**
+- Verified YAML anchors by exercising the shipped CLI parser path instead of documenting `js-yaml` behavior in isolation.
+- Documented `contains` as the right choice for “must mention this phrase in a longer answer” checks, rather than as a vague partial-match fallback.
+
+**Validation results:**
+- `pnpm type-check`: PASS
+- `pnpm test`: PASS
+
+**Issues found:**
+- None
+
+**Next session:**
+Milestone 19 — continue reconciling the remaining docs surfaces so the markdown docs and in-app docs stay aligned.

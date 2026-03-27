@@ -34,7 +34,23 @@ This file lives at the root of your repo and defines how Agentura calls your age
 
 | Field | Type | Default | Description | Example |
 |---|---|---|---|---|
-| `evals[].scorer` | `exact_match \| fuzzy_match \| semantic_similarity \| contains` | `exact_match` | Golden dataset scorer. `exact_match` uses literal string equality after trimming and lowercasing; `fuzzy_match` uses token overlap and works offline with no API key; `semantic_similarity` uses embedding-based cosine similarity and requires Anthropic, OpenAI, Gemini, Groq, or Ollama; `contains` checks whether the expected text appears anywhere in the output. | `scorer: semantic_similarity` |
+| `evals[].scorer` | `exact_match \| fuzzy_match \| semantic_similarity \| contains` | `exact_match` | Golden dataset scorer. `exact_match` uses literal string equality after trimming and lowercasing; `fuzzy_match` uses token overlap and works offline with no API key; `semantic_similarity` uses embedding-based cosine similarity and requires Anthropic, OpenAI, Gemini, Groq, or Ollama; `contains` checks whether the expected text appears anywhere in the output and is useful when a longer response must still mention a required phrase or keyword. | `scorer: semantic_similarity` |
+
+Use `contains` instead of `exact_match` when the response can be longer than the expected text but still needs to include a required phrase.
+
+```yaml
+- name: policy_mentions
+  type: golden_dataset
+  dataset: ./evals/policy_mentions.jsonl
+  scorer: contains
+  threshold: 1.0
+```
+
+```json
+{"input": "Can I get a refund if this does not work for me?", "expected": "30-day money-back guarantee"}
+```
+
+This passes for a longer response like `Yes — every plan includes a 30-day money-back guarantee.` and fails if that phrase is missing.
 
 ### `llm_judge`
 
@@ -99,6 +115,27 @@ These flags are available on `agentura run`:
 | `agentura run --reset-baseline` | Overwrites `.agentura/baseline.json` with the current run. |
 | `agentura run --locked` | Exits with code `1` if any dataset changed since the saved baseline. |
 | `agentura run --suite <name>` | Runs only the named suite. |
+
+## Tips
+
+### Reuse suite defaults with YAML anchors
+
+`agentura.yaml` is parsed with `js-yaml`, so standard YAML anchors and aliases work. This is handy when several suites share the same `type`, `scorer`, or `threshold`.
+
+```yaml
+defaults: &defaults
+  type: golden_dataset
+  scorer: exact_match
+  threshold: 0.8
+
+evals:
+  - name: accuracy
+    <<: *defaults
+    dataset: ./evals/accuracy.jsonl
+  - name: edge_cases
+    <<: *defaults
+    dataset: ./evals/edge_cases.jsonl
+```
 
 ## Complete example
 

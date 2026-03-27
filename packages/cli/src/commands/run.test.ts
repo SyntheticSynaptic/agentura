@@ -295,6 +295,83 @@ ci:
   assert.match(output, /PASS/);
 });
 
+test("run --local supports YAML anchors and aliases in agentura.yaml", async () => {
+  const directory = await createFixtureDir("agentura-cli-local-yaml-anchors-");
+
+  await mkdir(path.join(directory, "evals"), { recursive: true });
+  await writeFile(
+    path.join(directory, "agent.js"),
+    `
+const chunks = [];
+process.stdin.on("data", (chunk) => chunks.push(chunk.toString()));
+process.stdin.on("end", () => {
+  const input = chunks.join("").trim().toLowerCase();
+  if (input.includes("refund")) {
+    process.stdout.write("30-day money-back guarantee");
+    return;
+  }
+
+  if (input.includes("projects")) {
+    process.stdout.write("3 projects");
+    return;
+  }
+
+  process.stdout.write("unknown");
+});
+`.trimStart(),
+    "utf-8"
+  );
+  await writeFile(
+    path.join(directory, "evals", "accuracy.jsonl"),
+    `{"id":"case_accuracy","input":"What is the refund policy?","expected":"30-day money-back guarantee"}\n`,
+    "utf-8"
+  );
+  await writeFile(
+    path.join(directory, "evals", "edge_cases.jsonl"),
+    `{"id":"case_edge","input":"How many projects are included?","expected":"3 projects"}\n`,
+    "utf-8"
+  );
+  await writeFile(
+    path.join(directory, "agentura.yaml"),
+    `
+version: 1
+agent:
+  type: cli
+  command: node ./agent.js
+  timeout_ms: 30000
+
+defaults: &defaults
+  type: golden_dataset
+  scorer: exact_match
+  threshold: 0.8
+
+evals:
+  - name: accuracy
+    <<: *defaults
+    dataset: ./evals/accuracy.jsonl
+  - name: edge_cases
+    <<: *defaults
+    dataset: ./evals/edge_cases.jsonl
+ci:
+  block_on_regression: true
+  regression_threshold: 0.05
+  compare_to: main
+  post_comment: true
+  fail_on_new_suite: false
+`.trimStart(),
+    "utf-8"
+  );
+
+  const result = await runCli(directory, ["run", "--local"]);
+  const output = stripAnsi(result.output);
+  const passMatches = output.match(/PASS/g) ?? [];
+
+  assert.equal(result.code, 0);
+  assert.match(output, /accuracy/);
+  assert.match(output, /edge_cases/);
+  assert.ok(passMatches.length >= 2);
+});
+
 test("run --local warns and fails semantic_similarity suites when no embedding provider is available", async () => {
   const directory = await createFixtureDir("agentura-cli-local-semantic-verbose-");
 

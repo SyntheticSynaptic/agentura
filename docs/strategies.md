@@ -13,7 +13,7 @@ Agentura supports four suite strategies today: `golden_dataset`, `llm_judge`, `t
 - `exact_match` — literal string equality after trimming and lowercasing. Use when the answer must be exactly right.
 - `fuzzy_match` — token overlap score. Use when wording may vary slightly but structure matters. Fast, works offline, no API key needed.
 - `semantic_similarity` — embedding-based cosine similarity. Use for natural language where meaning matters more than wording. Requires an embedding provider (Anthropic, OpenAI, Gemini, Groq, or Ollama).
-- `contains` — checks whether expected text appears anywhere in the output. Use for partial match validation.
+- `contains` — checks whether expected text appears anywhere in the output. Use it when the agent may return a longer answer but must include a required phrase or keyword.
 
 **Example config:**
 
@@ -31,6 +31,28 @@ Agentura supports four suite strategies today: `golden_dataset`, `llm_judge`, `t
 {"input": "what is 2+2", "expected": "4"}
 {"input": "what is the capital of France", "expected": "Paris"}
 ```
+
+## `contains` scorer
+
+Use `contains` when the agent can add extra wording, but one phrase still has to appear in the answer. Prefer it over `exact_match` when you want to verify a required keyword or sentence fragment without forcing the whole response to match exactly.
+
+**Example config:**
+
+```yaml
+- name: policy_mentions
+  type: golden_dataset
+  dataset: ./evals/policy_mentions.jsonl
+  scorer: contains
+  threshold: 1.0
+```
+
+**Example dataset:**
+
+```json
+{"input": "Can I get a refund if this does not work for me?", "expected": "30-day money-back guarantee"}
+```
+
+This passes if the agent says something like `Yes — every plan includes a 30-day money-back guarantee.` and fails if the required phrase never appears.
 
 ## `semantic_similarity` scorer
 
