@@ -2273,3 +2273,31 @@ Milestone 19 — continue the remaining dashboard/settings polish work and recon
 
 **Next session:**
 Milestone 19 — continue the remaining dashboard/settings polish work and revisit docs for `agentura generate` if the CLI surface expands beyond the new adversarial mode.
+
+## Session — 2026-03-27 01:23 UTC
+
+**Milestone:** 19 — Dashboard Polish + Settings
+**Status:** COMPLETE
+
+**Files created:**
+- None
+
+**Files modified:**
+- `packages/eval-runner/src/scorers/fuzzy-match.test.ts` — added an assertion that locks `fuzzy_match` to token-overlap semantics rather than edit distance
+- `docs/agentura-yaml.md` — tightened the scorer descriptions so all four current scorer options read as first-class, current config values
+- `docs/Documentation.md` — appended this session summary
+
+**Decisions made:**
+- Left the core scorer and warning-path implementation unchanged after verification because `fuzzy_match`, `--allow-fallback`, and the friendly provider warnings were already correct in the requested source files.
+- Added a focused scorer test instead of refactoring working code so the token-overlap contract stays explicit going forward.
+
+**Validation results:**
+- `pnpm type-check`: PASS
+- `pnpm test`: PASS
+
+**Issues found:**
+- Verified the requested scorer cleanup files are in the expected state.
+- Separately noted, but did not change, that `apps/worker/src/github/fetch-config.ts` still references the older `latency_threshold_ms` performance key.
+
+**Next session:**
+Milestone 19 — reconcile the remaining in-app docs pages and worker-side config parsing that still reference older scorer or performance terminology.

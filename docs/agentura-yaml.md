@@ -34,7 +34,7 @@ This file lives at the root of your repo and defines how Agentura calls your age
 
 | Field | Type | Default | Description | Example |
 |---|---|---|---|---|
-| `evals[].scorer` | `exact_match \| fuzzy_match \| semantic_similarity \| contains` | `exact_match` | Golden dataset scorer. `exact_match` uses literal string equality after trimming and lowercasing; `fuzzy_match` uses token overlap; `semantic_similarity` uses embedding-based cosine similarity; `contains` checks whether the expected text appears anywhere in the output. | `scorer: semantic_similarity` |
+| `evals[].scorer` | `exact_match \| fuzzy_match \| semantic_similarity \| contains` | `exact_match` | Golden dataset scorer. `exact_match` uses literal string equality after trimming and lowercasing; `fuzzy_match` uses token overlap and works offline with no API key; `semantic_similarity` uses embedding-based cosine similarity and requires Anthropic, OpenAI, Gemini, Groq, or Ollama; `contains` checks whether the expected text appears anywhere in the output. | `scorer: semantic_similarity` |
 
 ### `llm_judge`
 
