@@ -1,6 +1,6 @@
 {
   "name": "agentura",
-  "version": "0.1.3",
+  "version": "0.2.2",
   "description": "Automated eval checks for AI agents on every PR",
   "bin": {
     "agentura": "dist/index.js"
