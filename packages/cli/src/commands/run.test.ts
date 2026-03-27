@@ -211,7 +211,49 @@ ci:
   assert.match(output, /PASS/);
 });
 
-test("run --local --verbose prints per-case similarity for semantic_similarity suites", async () => {
+test("run --local accepts fuzzy_match as an explicit scorer", async () => {
+  const directory = await createFixtureDir("agentura-cli-local-fuzzy-");
+
+  await writeCommonConfigFiles(
+    directory,
+    `
+const chunks = [];
+process.stdin.on("data", (chunk) => chunks.push(chunk.toString()));
+process.stdin.on("end", () => {
+  process.stdout.write("The free plan includes 3 projects.");
+});
+`.trimStart(),
+    `{"id":"case_fuzzy","input":"What does the free plan include?","expected":"3 projects on the free plan"}\n`,
+    `
+version: 1
+agent:
+  type: cli
+  command: node ./agent.js
+  timeout_ms: 30000
+evals:
+  - name: accuracy
+    type: golden_dataset
+    dataset: ./evals/cases.jsonl
+    scorer: fuzzy_match
+    threshold: 0.70
+ci:
+  block_on_regression: true
+  regression_threshold: 0.05
+  compare_to: main
+  post_comment: true
+  fail_on_new_suite: false
+`.trimStart()
+  );
+
+  const result = await runCli(directory, ["run", "--local"]);
+  const output = stripAnsi(result.output);
+
+  assert.equal(result.code, 0);
+  assert.match(output, /accuracy/);
+  assert.match(output, /PASS/);
+});
+
+test("run --local warns and fails semantic_similarity suites when no embedding provider is available", async () => {
   const directory = await createFixtureDir("agentura-cli-local-semantic-verbose-");
 
   await writeCommonConfigFiles(
@@ -260,7 +302,59 @@ ci:
   });
   const output = stripAnsi(result.output);
 
+  assert.equal(result.code, 1);
+  assert.match(
+    output,
+    /semantic_similarity needs an embedding provider to run\.\nAdd an API key for Anthropic, OpenAI, Gemini, or Groq,\nor start Ollama locally \(ollama\.com\)\.\nTo use string-based matching instead, set scorer: fuzzy_match/
+  );
+  assert.match(output, /✗ case_3 \(similarity: 0\.00\) "What does the free plan include\?"/);
+});
+
+test("run --local --allow-fallback uses fuzzy_match for semantic_similarity suites when no provider is available", async () => {
+  const directory = await createFixtureDir("agentura-cli-local-semantic-fallback-");
+
+  await writeCommonConfigFiles(
+    directory,
+    `
+const chunks = [];
+process.stdin.on("data", (chunk) => chunks.push(chunk.toString()));
+process.stdin.on("end", () => {
+  process.stdout.write("The free plan includes 3 projects.");
+});
+`.trimStart(),
+    `{"id":"case_3","input":"What does the free plan include?","expected":"The free plan includes 3 projects."}\n`,
+    `
+version: 1
+agent:
+  type: cli
+  command: node ./agent.js
+  timeout_ms: 30000
+evals:
+  - name: accuracy
+    type: golden_dataset
+    dataset: ./evals/cases.jsonl
+    scorer: semantic_similarity
+    threshold: 0.85
+ci:
+  block_on_regression: true
+  regression_threshold: 0.05
+  compare_to: main
+  post_comment: true
+  fail_on_new_suite: false
+`.trimStart()
+  );
+
+  const result = await runCli(directory, ["run", "--local", "--verbose", "--allow-fallback"], {
+    OPENAI_API_KEY: null,
+    ANTHROPIC_API_KEY: null,
+    GEMINI_API_KEY: null,
+    GROQ_API_KEY: null,
+    OLLAMA_BASE_URL: "http://127.0.0.1:1",
+  });
+  const output = stripAnsi(result.output);
+
   assert.equal(result.code, 0);
+  assert.match(output, /Using fuzzy_match because --allow-fallback is set\./);
   assert.match(output, /✓ case_3 \(similarity: 1\.00\) "What does the free plan include\?"/);
 });
 
@@ -928,6 +1022,6 @@ ci:
   assert.equal(result.code, 0);
   assert.match(
     output,
-    /llm_judge suites skipped: set ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY, or GROQ_API_KEY, or install Ollama \(https:\/\/ollama\.com\) to run them/
+    /llm_judge needs a language model to run\.\nAdd an API key for Anthropic, OpenAI, Gemini, or Groq,\nor start Ollama locally \(ollama\.com\)\.\nThis suite will be skipped\./
   );
 });

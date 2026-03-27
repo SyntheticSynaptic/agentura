@@ -3,7 +3,7 @@ import test from "node:test";
 
 import type { SemanticSimilarityClientFactories } from "./semantic-similarity";
 import {
-  NO_EMBEDDING_API_KEY_WARNING,
+  NO_EMBEDDING_PROVIDER_WARNING,
   OLLAMA_EMBEDDING_MODEL_WARNING,
   resetSemanticSimilarityTestState,
   resolveSemanticSimilarityProvider,
@@ -173,9 +173,14 @@ test("scoreSemanticSimilarity returns cosine similarity for OpenAI embeddings an
     }
   );
 
-  const env = { OPENAI_API_KEY: "openai-key" };
-  const firstScore = await scoreSemanticSimilarity("semantic answer", "expected", env, factories);
-  const secondScore = await scoreSemanticSimilarity("semantic answer", "expected", env, factories);
+  const firstScore = await scoreSemanticSimilarity("semantic answer", "expected", {
+    env: { OPENAI_API_KEY: "openai-key" },
+    clientFactories: factories,
+  });
+  const secondScore = await scoreSemanticSimilarity("semantic answer", "expected", {
+    env: { OPENAI_API_KEY: "openai-key" },
+    clientFactories: factories,
+  });
 
   assert.equal(firstScore, 0.8);
   assert.equal(secondScore, 0.8);
@@ -216,8 +221,10 @@ test("scoreSemanticSimilarity selects the Voyage model for the Anthropic provide
   const score = await scoreSemanticSimilarity(
     "agent output",
     "expected",
-    { ANTHROPIC_API_KEY: "anthropic-key" },
-    factories
+    {
+      env: { ANTHROPIC_API_KEY: "anthropic-key" },
+      clientFactories: factories,
+    }
   );
 
   assert.equal(score, 0);
@@ -258,8 +265,10 @@ test("scoreSemanticSimilarity selects Gemini embeddings when only GEMINI_API_KEY
   const score = await scoreSemanticSimilarity(
     "actual",
     "expected",
-    { GEMINI_API_KEY: "gemini-key" },
-    factories
+    {
+      env: { GEMINI_API_KEY: "gemini-key" },
+      clientFactories: factories,
+    }
   );
 
   assert.equal(score, 1);
@@ -300,8 +309,10 @@ test("scoreSemanticSimilarity selects Groq embeddings before Ollama when only GR
   const score = await scoreSemanticSimilarity(
     "actual",
     "expected",
-    { GROQ_API_KEY: "groq-key", OLLAMA_BASE_URL: "http://127.0.0.1:1" },
-    factories
+    {
+      env: { GROQ_API_KEY: "groq-key", OLLAMA_BASE_URL: "http://127.0.0.1:1" },
+      clientFactories: factories,
+    }
   );
 
   assert.equal(score, 1);
@@ -359,9 +370,11 @@ test("scoreSemanticSimilarity logs and uses Ollama when no API key exists and Ol
       "actual",
       "expected",
       {
-        OLLAMA_BASE_URL: "http://localhost:11434",
-      },
-      factories
+        env: {
+          OLLAMA_BASE_URL: "http://localhost:11434",
+        },
+        clientFactories: factories,
+      }
     );
 
     assert.equal(score, 1);
@@ -384,7 +397,7 @@ test("scoreSemanticSimilarity logs and uses Ollama when no API key exists and Ol
   }
 });
 
-test("scoreSemanticSimilarity warns once when Ollama is running without an embedding model", async () => {
+test("scoreSemanticSimilarity warns once when Ollama is running without an embedding model and returns 0", async () => {
   resetSemanticSimilarityTestState();
 
   const originalFetch = globalThis.fetch;
@@ -402,15 +415,15 @@ test("scoreSemanticSimilarity warns once when Ollama is running without an embed
       const firstScore = await scoreSemanticSimilarity(
         "hello world from agentura",
         "hello world",
-        { OLLAMA_BASE_URL: "http://localhost:11434" }
+        { env: { OLLAMA_BASE_URL: "http://localhost:11434" } }
       );
       const secondScore = await scoreSemanticSimilarity(
         "hello world from agentura",
         "hello world",
-        { OLLAMA_BASE_URL: "http://localhost:11434" }
+        { env: { OLLAMA_BASE_URL: "http://localhost:11434" } }
       );
 
-      assert.ok(firstScore > 0 && firstScore < 1);
+      assert.equal(firstScore, 0);
       assert.equal(secondScore, firstScore);
       assert.deepEqual(warnings, [OLLAMA_EMBEDDING_MODEL_WARNING]);
     });
@@ -419,24 +432,46 @@ test("scoreSemanticSimilarity warns once when Ollama is running without an embed
   }
 });
 
-test("scoreSemanticSimilarity warns once and falls back to token overlap when no embedding key is present", async () => {
+test("scoreSemanticSimilarity warns once and returns 0 when no embedding provider is present", async () => {
   resetSemanticSimilarityTestState();
 
   await withConsoleWarnings(async (warnings) => {
     const firstScore = await scoreSemanticSimilarity("hello world from agentura", "hello world", {
-      OLLAMA_BASE_URL: "http://127.0.0.1:1",
+      env: {
+        OLLAMA_BASE_URL: "http://127.0.0.1:1",
+      },
     });
     const secondScore = await scoreSemanticSimilarity("hello world from agentura", "hello world", {
-      OLLAMA_BASE_URL: "http://127.0.0.1:1",
+      env: {
+        OLLAMA_BASE_URL: "http://127.0.0.1:1",
+      },
     });
 
-    assert.ok(firstScore > 0 && firstScore < 1);
+    assert.equal(firstScore, 0);
     assert.equal(secondScore, firstScore);
-    assert.deepEqual(warnings, [NO_EMBEDDING_API_KEY_WARNING]);
+    assert.deepEqual(warnings, [NO_EMBEDDING_PROVIDER_WARNING]);
   });
 });
 
-test("scoreSemanticSimilarity falls back to token overlap if the embedding request fails", async () => {
+test("scoreSemanticSimilarity uses fuzzy_match when allowFallback is enabled and no provider is present", async () => {
+  resetSemanticSimilarityTestState();
+
+  await withConsoleWarnings(async (warnings) => {
+    const score = await scoreSemanticSimilarity("hello world from agentura", "hello world", {
+      env: {
+        OLLAMA_BASE_URL: "http://127.0.0.1:1",
+      },
+      allowFallback: true,
+    });
+
+    assert.equal(score, 0.5);
+    assert.deepEqual(warnings, [
+      "semantic_similarity needs an embedding provider to run.\nAdd an API key for Anthropic, OpenAI, Gemini, or Groq,\nor start Ollama locally (ollama.com).\nUsing fuzzy_match because --allow-fallback is set.",
+    ]);
+  });
+});
+
+test("scoreSemanticSimilarity returns 0 when the embedding request fails", async () => {
   resetSemanticSimilarityTestState();
 
   const factories: SemanticSimilarityClientFactories = {
@@ -473,24 +508,93 @@ test("scoreSemanticSimilarity falls back to token overlap if the embedding reque
     const score = await scoreSemanticSimilarity(
       "The free plan includes 3 projects.",
       "3 projects",
-      { OPENAI_API_KEY: "openai-key" },
-      factories
+      {
+        env: { OPENAI_API_KEY: "openai-key" },
+        clientFactories: factories,
+      }
     );
 
-    assert.ok(score > 0 && score < 1);
+    assert.equal(score, 0);
     assert.equal(warnings.length, 1);
     assert.match(
       warnings[0] ?? "",
-      /semantic_similarity scorer: openai embeddings unavailable \(boom\); falling back to token overlap/
+      /semantic_similarity could not get embeddings from openai \(boom\)\.\nScores will be 0 for this suite\.\nRun again with --allow-fallback to use fuzzy_match instead\./
     );
+  });
+});
+
+test("scoreSemanticSimilarity uses fuzzy_match when allowFallback is enabled after an embedding failure", async () => {
+  resetSemanticSimilarityTestState();
+
+  const factories: SemanticSimilarityClientFactories = {
+    openai: () => ({
+      embeddings: {
+        create: async () => {
+          throw new Error("boom");
+        },
+      },
+    }),
+    anthropic: () => ({
+      embeddings: {
+        create: async () => ({ data: [{ embedding: [1] }] }),
+      },
+    }),
+    gemini: () => ({
+      models: {
+        embedContent: async () => ({ embeddings: [{ values: [1] }] }),
+      },
+    }),
+    groq: () => ({
+      embeddings: {
+        create: async () => ({ data: [{ embedding: [1] }] }),
+      },
+    }),
+    ollama: () => ({
+      embeddings: {
+        create: async () => ({ embedding: [1] }),
+      },
+    }),
+  };
+
+  await withConsoleWarnings(async (warnings) => {
+    const score = await scoreSemanticSimilarity(
+      "The free plan includes 3 projects.",
+      "3 projects",
+      {
+        env: { OPENAI_API_KEY: "openai-key" },
+        clientFactories: factories,
+        allowFallback: true,
+      }
+    );
+
+    assert.equal(score, 1 / 3);
+    assert.deepEqual(warnings, [
+      "semantic_similarity could not get embeddings from openai (boom).\nUsing fuzzy_match because --allow-fallback is set.",
+    ]);
   });
 });
 
 test("scoreSemanticSimilarity handles empty strings without embedding calls", async () => {
   resetSemanticSimilarityTestState();
 
-  const env = { OLLAMA_BASE_URL: "http://127.0.0.1:1" };
-  assert.equal(await scoreSemanticSimilarity("", "", env), 1);
-  assert.equal(await scoreSemanticSimilarity("", "non-empty", env), 0);
-  assert.equal(await scoreSemanticSimilarity("non-empty", "", env), 0);
+  let called = false;
+  const options = {
+    env: { OPENAI_API_KEY: "openai-key" },
+    clientFactories: createClientFactories(
+      {
+        openai: {},
+        anthropic: {},
+        gemini: {},
+        groq: {},
+        ollama: {},
+      },
+      () => {
+        called = true;
+      }
+    ),
+  };
+  assert.equal(await scoreSemanticSimilarity("", "", options), 1);
+  assert.equal(await scoreSemanticSimilarity("", "non-empty", options), 0);
+  assert.equal(await scoreSemanticSimilarity("non-empty", "", options), 0);
+  assert.equal(called, false);
 });

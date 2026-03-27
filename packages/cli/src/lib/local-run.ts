@@ -38,6 +38,7 @@ import { loadRubric } from "./load-rubric";
 export interface LocalRunCommandOptions {
   suite?: string;
   verbose?: boolean;
+  allowFallback?: boolean;
   resetBaseline?: boolean;
   locked?: boolean;
 }
@@ -165,7 +166,7 @@ interface DatasetChange {
   currentCaseCount: number;
 }
 
-type GoldenScorer = "exact_match" | "contains" | "semantic_similarity";
+type GoldenScorer = "exact_match" | "fuzzy_match" | "contains" | "semantic_similarity";
 
 const execFile = promisify(execFileCallback);
 const LOCAL_STATE_DIR = ".agentura";
@@ -231,7 +232,9 @@ const goldenSuiteSchema = z.object({
   name: z.string().min(1),
   type: z.literal("golden_dataset"),
   dataset: z.string().min(1),
-  scorer: z.enum(["exact_match", "contains", "semantic_similarity"]).default("exact_match"),
+  scorer: z
+    .enum(["exact_match", "fuzzy_match", "contains", "semantic_similarity"])
+    .default("exact_match"),
   threshold: z.number().min(0).max(1),
 });
 
@@ -1080,7 +1083,8 @@ async function runSuite(
   suite: ParsedSuite,
   agentFn: AgentFunction,
   judge: ResolvedLlmJudgeProvider | null,
-  cwd: string
+  cwd: string,
+  options: LocalRunCommandOptions
 ): Promise<{
   cases: EvalCase[];
   datasetHash: string;
@@ -1102,6 +1106,7 @@ async function runSuite(
       result: await runGoldenDataset(cases, agentFn, suite.scorer as GoldenScorer, {
         suiteName: suite.name,
         threshold: suite.threshold,
+        allowFallback: options.allowFallback,
       }),
     };
   }
@@ -1345,7 +1350,7 @@ export async function runLocalCommand(options: LocalRunCommandOptions = {}): Pro
 
   for (const suite of suites) {
     console.log(chalk.gray(`  Running suite: ${suite.name} (${suite.type})...`));
-    const suiteExecution = await runSuite(suite, agentFn, judge, cwd);
+    const suiteExecution = await runSuite(suite, agentFn, judge, cwd, options);
     const summaryRow = toSummaryRow(suite, suiteExecution.result);
     completedRows.push(summaryRow);
 

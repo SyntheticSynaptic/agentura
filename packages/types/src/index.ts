@@ -47,7 +47,7 @@ export interface EvalSuiteConfig {
   name: string;
   type: "golden_dataset" | "llm_judge" | "performance" | "tool_use";
   dataset: string;
-  scorer?: "exact_match" | "semantic_similarity" | "contains";
+  scorer?: "exact_match" | "fuzzy_match" | "semantic_similarity" | "contains";
   rubric?: string;
   judge_model?: string;
   runs?: number;

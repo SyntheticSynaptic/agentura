@@ -4,8 +4,10 @@ import {
   detectOllamaEmbeddingModel,
   getOllamaBaseUrl,
   resetOllamaTestState,
+  OLLAMA_EMBEDDING_MODEL_WARNING,
   type OllamaFetchLike,
 } from "./ollama";
+import { scoreFuzzyMatch } from "./fuzzy-match";
 
 export type SemanticSimilarityProvider =
   | "anthropic"
@@ -21,10 +23,13 @@ export interface ResolvedSemanticSimilarityProvider {
   baseUrl?: string;
 }
 
-export const NO_EMBEDDING_API_KEY_WARNING =
-  "semantic_similarity scorer: set ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY, or GROQ_API_KEY, or install Ollama (https://ollama.com) to use embedding-based similarity; falling back to token overlap";
-export const OLLAMA_EMBEDDING_MODEL_WARNING =
-  "semantic_similarity: Ollama is running but no embedding model found. Install one with: ollama pull mxbai-embed-large\nOr set OLLAMA_EMBED_MODEL=your-model-name";
+export const NO_EMBEDDING_PROVIDER_WARNING =
+  "semantic_similarity needs an embedding provider to run.\nAdd an API key for Anthropic, OpenAI, Gemini, or Groq,\nor start Ollama locally (ollama.com).\nTo use string-based matching instead, set scorer: fuzzy_match";
+export const NO_EMBEDDING_API_KEY_WARNING = NO_EMBEDDING_PROVIDER_WARNING;
+export { OLLAMA_EMBEDDING_MODEL_WARNING };
+
+const ALLOW_FALLBACK_PROVIDER_WARNING =
+  "semantic_similarity needs an embedding provider to run.\nAdd an API key for Anthropic, OpenAI, Gemini, or Groq,\nor start Ollama locally (ollama.com).\nUsing fuzzy_match because --allow-fallback is set.";
 
 interface OpenAIEmbeddingResponse {
   data?: Array<{
@@ -201,9 +206,7 @@ const EMBEDDING_PROVIDER_PRIORITY: Array<{
 ];
 
 const embeddingCache = new Map<string, Promise<number[]>>();
-let missingProviderWarningShown = false;
-let missingOllamaEmbeddingModelWarningShown = false;
-const providerFailureWarningsShown = new Set<SemanticSimilarityProvider>();
+const shownWarnings = new Set<string>();
 let ollamaSelectionLogShown = false;
 
 export interface SemanticSimilarityResolverOptions {
@@ -211,37 +214,46 @@ export interface SemanticSimilarityResolverOptions {
   ollamaAvailable?: boolean;
 }
 
+export interface SemanticSimilarityScoreOptions {
+  env?: Record<string, string | undefined>;
+  clientFactories?: SemanticSimilarityClientFactories;
+  allowFallback?: boolean;
+}
+
 interface SemanticSimilarityProviderResolution {
   provider: ResolvedSemanticSimilarityProvider | null;
   missingOllamaEmbeddingModel: boolean;
 }
 
-function tokenize(text: string): Set<string> {
-  const tokens = text.toLowerCase().match(/[a-z0-9]+/g);
-  return new Set(tokens ?? []);
+function warnOnce(key: string, message: string): void {
+  if (shownWarnings.has(key)) {
+    return;
+  }
+
+  console.warn(message);
+  shownWarnings.add(key);
 }
 
-function fallbackTokenOverlapScore(output: string, expected: string): number {
-  const outputTokens = tokenize(output);
-  const expectedTokens = tokenize(expected);
-
-  if (outputTokens.size === 0 && expectedTokens.size === 0) {
-    return 1;
+function formatOllamaNoEmbeddingModelWarning(allowFallback: boolean): string {
+  if (!allowFallback) {
+    return OLLAMA_EMBEDDING_MODEL_WARNING;
   }
 
-  if (outputTokens.size === 0 || expectedTokens.size === 0) {
-    return 0;
+  return `${OLLAMA_EMBEDDING_MODEL_WARNING}\nUsing fuzzy_match because --allow-fallback is set.`;
+}
+
+function formatProviderFailureWarning(
+  provider: SemanticSimilarityProvider,
+  error: unknown,
+  allowFallback: boolean
+): string {
+  const detail = error instanceof Error ? error.message : "Unknown error";
+
+  if (allowFallback) {
+    return `semantic_similarity could not get embeddings from ${provider} (${detail}).\nUsing fuzzy_match because --allow-fallback is set.`;
   }
 
-  let intersectionSize = 0;
-  for (const token of outputTokens) {
-    if (expectedTokens.has(token)) {
-      intersectionSize += 1;
-    }
-  }
-
-  const unionSize = new Set([...outputTokens, ...expectedTokens]).size;
-  return unionSize === 0 ? 1 : intersectionSize / unionSize;
+  return `semantic_similarity could not get embeddings from ${provider} (${detail}).\nScores will be 0 for this suite.\nRun again with --allow-fallback to use fuzzy_match instead.`;
 }
 
 function clampScore(score: number): number {
@@ -457,9 +469,7 @@ export async function resolveSemanticSimilarityProvider(
 
 export function resetSemanticSimilarityTestState(): void {
   embeddingCache.clear();
-  missingProviderWarningShown = false;
-  missingOllamaEmbeddingModelWarningShown = false;
-  providerFailureWarningsShown.clear();
+  shownWarnings.clear();
   ollamaSelectionLogShown = false;
   resetOllamaTestState();
 }
@@ -467,31 +477,36 @@ export function resetSemanticSimilarityTestState(): void {
 export async function scoreSemanticSimilarity(
   output: string,
   expected: string,
-  env: Record<string, string | undefined> = process.env,
-  clientFactories: SemanticSimilarityClientFactories = defaultClientFactories
+  options: SemanticSimilarityScoreOptions = {}
 ): Promise<number> {
+  const env = options.env ?? process.env;
+  const clientFactories = options.clientFactories ?? defaultClientFactories;
+  const allowFallback = options.allowFallback === true;
+
+  const { provider, missingOllamaEmbeddingModel } =
+    await resolveSemanticSimilarityProviderWithState(env);
+  if (!provider) {
+    if (missingOllamaEmbeddingModel) {
+      warnOnce(
+        allowFallback ? "ollama-missing-model-fallback" : "ollama-missing-model",
+        formatOllamaNoEmbeddingModelWarning(allowFallback)
+      );
+    } else {
+      warnOnce(
+        allowFallback ? "no-provider-fallback" : "no-provider",
+        allowFallback ? ALLOW_FALLBACK_PROVIDER_WARNING : NO_EMBEDDING_PROVIDER_WARNING
+      );
+    }
+
+    return allowFallback ? scoreFuzzyMatch(output, expected) : 0;
+  }
+
   if (output.trim().length === 0 && expected.trim().length === 0) {
     return 1;
   }
 
   if (output.trim().length === 0 || expected.trim().length === 0) {
     return 0;
-  }
-
-  const { provider, missingOllamaEmbeddingModel } =
-    await resolveSemanticSimilarityProviderWithState(env);
-  if (!provider) {
-    if (missingOllamaEmbeddingModel) {
-      if (!missingOllamaEmbeddingModelWarningShown) {
-        console.warn(OLLAMA_EMBEDDING_MODEL_WARNING);
-        missingOllamaEmbeddingModelWarningShown = true;
-      }
-    } else if (!missingProviderWarningShown) {
-      console.warn(NO_EMBEDDING_API_KEY_WARNING);
-      missingProviderWarningShown = true;
-    }
-
-    return fallbackTokenOverlapScore(output, expected);
   }
 
   if (provider.provider === "ollama" && !ollamaSelectionLogShown) {
@@ -503,18 +518,18 @@ export async function scoreSemanticSimilarity(
     getCachedEmbedding(provider, output, clientFactories),
     getCachedEmbedding(provider, expected, clientFactories),
   ]).catch((error: unknown) => {
-    if (!providerFailureWarningsShown.has(provider.provider)) {
-      console.warn(
-        `semantic_similarity scorer: ${provider.provider} embeddings unavailable (${error instanceof Error ? error.message : "Unknown error"}); falling back to token overlap`
-      );
-      providerFailureWarningsShown.add(provider.provider);
-    }
+    warnOnce(
+      allowFallback
+        ? `${provider.provider}-failure-fallback`
+        : `${provider.provider}-failure`,
+      formatProviderFailureWarning(provider.provider, error, allowFallback)
+    );
 
     return [null, null] as const;
   });
 
   if (!outputEmbedding || !expectedEmbedding) {
-    return fallbackTokenOverlapScore(output, expected);
+    return allowFallback ? scoreFuzzyMatch(output, expected) : 0;
   }
 
   return cosineSimilarity(outputEmbedding, expectedEmbedding);

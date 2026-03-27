@@ -10,9 +10,10 @@ Agentura supports four suite strategies today: `golden_dataset`, `llm_judge`, `t
 
 **Common scorers:**
 
-- `exact_match` for strict strings and structured outputs
-- `contains` when the expected text only needs to appear in the answer
-- `semantic_similarity` when wording can vary but meaning should stay the same
+- `exact_match` — literal string equality after trimming and lowercasing. Use when the answer must be exactly right.
+- `fuzzy_match` — token overlap score. Use when wording may vary slightly but structure matters. Fast, works offline, no API key needed.
+- `semantic_similarity` — embedding-based cosine similarity. Use for natural language where meaning matters more than wording. Requires an embedding provider (Anthropic, OpenAI, Gemini, Groq, or Ollama).
+- `contains` — checks whether expected text appears anywhere in the output. Use for partial match validation.
 
 **Example config:**
 
@@ -35,8 +36,6 @@ Agentura supports four suite strategies today: `golden_dataset`, `llm_judge`, `t
 
 `semantic_similarity` is embedding-based. Agentura generates embeddings for the agent output and the expected answer, computes cosine similarity locally, and uses that score in the range `0.0` to `1.0`.
 
-If no embedding provider is available, Agentura falls back to token overlap instead of crashing the run.
-
 **How to use it:**
 
 ```yaml
@@ -54,9 +53,10 @@ If no embedding provider is available, Agentura falls back to token overlap inst
 3. `GEMINI_API_KEY`
 4. `GROQ_API_KEY`
 5. Ollama, if `http://localhost:11434` is reachable
-6. Fallback to token overlap
 
 **Ollama support:** If Ollama is running, Agentura can score semantic similarity fully offline with no API key. It auto-detects a compatible installed embedding model, or you can pin one with `OLLAMA_EMBED_MODEL`.
+
+If no embedding provider is available, Agentura warns clearly and scores the suite at `0` instead of silently switching algorithms. If you explicitly want string-based matching, use `scorer: fuzzy_match`.
 
 **Typical threshold:** `0.85`
 

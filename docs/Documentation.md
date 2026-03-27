@@ -2200,3 +2200,46 @@ Milestone 18 — run the remaining manual `agentura generate` E2E checks and the
 
 **Next session:**
 Milestone 19 — continue the dashboard polish work and reconcile the remaining in-app docs pages with the refreshed top-level documentation.
+
+## Session — 2026-03-27 00:27 UTC
+
+**Milestone:** 19 — Dashboard Polish + Settings
+**Status:** IN PROGRESS
+
+**Files created:**
+- `packages/eval-runner/src/scorers/fuzzy-match.ts` — added explicit token-overlap scorer for golden dataset suites
+- `packages/eval-runner/src/scorers/fuzzy-match.test.ts` — added unit coverage for fuzzy-match scoring behavior
+
+**Files modified:**
+- `packages/eval-runner/src/index.ts` — exported the new scorer and semantic warning constant
+- `packages/eval-runner/src/strategies/golden-dataset.ts` — added `fuzzy_match` dispatch and threaded semantic fallback policy through scorer options
+- `packages/eval-runner/src/strategies/golden-dataset.test.ts` — covered explicit fuzzy-match suite execution
+- `packages/eval-runner/src/scorers/semantic-similarity.ts` — removed silent token-overlap fallback, added clear provider warnings, and made fallback opt-in
+- `packages/eval-runner/src/scorers/semantic-similarity.test.ts` — updated provider and fallback expectations for the new semantic behavior
+- `packages/eval-runner/src/scorers/llm-judge-scorer.ts` — replaced the llm_judge missing-provider warning text
+- `packages/eval-runner/src/scorers/llm-judge-scorer.test.ts` — pinned the new llm_judge warning message
+- `packages/eval-runner/src/scorers/ollama.ts` — centralized the Ollama no-embedding-model warning text
+- `packages/types/src/index.ts` — expanded the scorer union to include `fuzzy_match`
+- `packages/cli/src/index.ts` — added `agentura run --allow-fallback`
+- `packages/cli/src/commands/run.ts` — accepted the new CLI flag
+- `packages/cli/src/commands/run.test.ts` — added CLI coverage for explicit fuzzy_match, semantic hard-fail, and opt-in fallback
+- `packages/cli/src/lib/local-run.ts` — updated config validation and local golden-dataset execution to support `fuzzy_match` and `--allow-fallback`
+- `apps/worker/src/github/fetch-config.ts` — updated worker-side config validation to accept `fuzzy_match`
+- `apps/worker/src/index.ts` — corrected the worker startup warning to reflect semantic suites scoring `0` without a provider
+- `docs/strategies.md` — documented the four scorers with the new semantic/fuzzy separation
+- `docs/agentura-yaml.md` — updated scorer reference text to list all four scorers clearly
+- `docs/Documentation.md` — appended this session summary
+
+**Decisions made:**
+- Made `fuzzy_match` a first-class scorer instead of a hidden semantic fallback — explicit algorithm choice is less surprising than silently swapping scoring modes.
+- Kept semantic fallback as a CLI opt-in (`--allow-fallback`) rather than a config field — it is an execution preference, not part of suite semantics.
+
+**Validation results:**
+- `pnpm type-check`: PASS
+- `pnpm test`: PASS
+
+**Issues found:**
+- None
+
+**Next session:**
+Milestone 19 — continue the remaining dashboard/settings polish work and reconcile the in-app docs pages that still reference older scorer and performance terminology.

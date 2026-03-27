@@ -50,6 +50,10 @@ program
   .description("Run evals locally")
   .option("--suite <name>", "Run only a specific suite")
   .option("--local", "Run fully offline without Agentura auth or cloud APIs")
+  .option(
+    "--allow-fallback",
+    "Use fuzzy_match when semantic_similarity cannot reach an embedding provider"
+  )
   .option("--reset-baseline", "Overwrite the saved local baseline with this run")
   .option("--locked", "Fail if any dataset changed since the saved baseline")
   .option("--verbose", "Show individual case results")

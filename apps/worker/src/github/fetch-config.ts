@@ -78,7 +78,7 @@ const evalSuiteBaseSchema = z.object({
 
 const goldenDatasetSuiteSchema = evalSuiteBaseSchema.extend({
   type: z.literal("golden_dataset"),
-  scorer: z.enum(["exact_match", "semantic_similarity", "contains"]).optional(),
+  scorer: z.enum(["exact_match", "fuzzy_match", "semantic_similarity", "contains"]).optional(),
 });
 
 const llmJudgeSuiteSchema = evalSuiteBaseSchema.extend({

@@ -8,10 +8,12 @@ import {
 } from "../lib/conversation-runner";
 import { scoreContains } from "../scorers/contains";
 import { scoreExactMatch } from "../scorers/exact-match";
+import { scoreFuzzyMatch } from "../scorers/fuzzy-match";
 import { scoreSemanticSimilarity } from "../scorers/semantic-similarity";
 
 export type GoldenDatasetScorer =
   | "exact_match"
+  | "fuzzy_match"
   | "contains"
   | "semantic_similarity"
   | ((output: string, expected: string) => number | Promise<number>);
@@ -19,6 +21,7 @@ export type GoldenDatasetScorer =
 export interface GoldenDatasetOptions {
   suiteName?: string;
   threshold?: number;
+  allowFallback?: boolean;
 }
 
 function clampScore(score: number): number {
@@ -42,11 +45,17 @@ async function scoreCase(
     return scoreExactMatch(output, expected);
   }
 
+  if (scorer === "fuzzy_match") {
+    return scoreFuzzyMatch(output, expected);
+  }
+
   if (scorer === "contains") {
     return scoreContains(output, expected);
   }
 
-  return scoreSemanticSimilarity(output, expected);
+  return scoreSemanticSimilarity(output, expected, {
+    allowFallback: options.allowFallback,
+  });
 }
 
 function sumTurnMetric(

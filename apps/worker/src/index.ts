@@ -65,7 +65,7 @@ async function warnIfInferenceProvidersMissing(): Promise<void> {
   const semanticSimilarityProvider = await resolveSemanticSimilarityProvider();
   if (!semanticSimilarityProvider) {
     console.warn(
-      "[worker] No semantic_similarity provider configured. Embedding-based similarity will fall back to token overlap unless an API key is set or Ollama is running."
+      "[worker] No semantic_similarity provider configured. Embedding-based suites will score 0 until an API key is set or Ollama is running."
     );
   }
 }

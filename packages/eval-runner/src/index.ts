@@ -10,6 +10,7 @@ export {
 
 export { scoreContains } from "./scorers/contains";
 export { scoreExactMatch } from "./scorers/exact-match";
+export { scoreFuzzyMatch } from "./scorers/fuzzy-match";
 export {
   NO_LLM_JUDGE_API_KEY_WARNING,
   formatLlmJudgeProviderLogMessage,
@@ -18,6 +19,7 @@ export {
 } from "./scorers/llm-judge-scorer";
 export {
   NO_EMBEDDING_API_KEY_WARNING,
+  NO_EMBEDDING_PROVIDER_WARNING,
   resolveSemanticSimilarityProvider,
   scoreSemanticSimilarity,
 } from "./scorers/semantic-similarity";

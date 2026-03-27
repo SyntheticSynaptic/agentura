@@ -8,6 +8,9 @@ const OLLAMA_EMBED_MODEL_KEYWORDS = [
   "qwen3-embedding",
 ] as const;
 
+export const OLLAMA_EMBEDDING_MODEL_WARNING =
+  "Ollama is running but no embedding model was found.\nInstall one with: ollama pull mxbai-embed-large\nOr set the model explicitly: OLLAMA_EMBED_MODEL=your-model";
+
 export type OllamaFetchLike = typeof fetch;
 
 const reachabilityCache = new Map<string, Promise<boolean>>();

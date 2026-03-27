@@ -35,6 +35,30 @@ test("runGoldenDataset returns expected SuiteRunResult shape for 3 cases", async
   assert.equal(result.score, 2 / 3);
 });
 
+test("runGoldenDataset supports fuzzy_match as an explicit scorer", async () => {
+  const cases: EvalCase[] = [
+    {
+      input: "What is included on the free plan?",
+      expected: "3 projects on the free plan",
+    },
+  ];
+
+  const agentFn: AgentFunction = async () => ({
+    output: "The free plan includes 3 projects.",
+    latencyMs: 5,
+  });
+
+  const result = await runGoldenDataset(cases, agentFn, "fuzzy_match", {
+    suiteName: "accuracy",
+    threshold: 0.5,
+  });
+
+  assert.equal(result.totalCases, 1);
+  assert.equal(result.passedCases, 1);
+  assert.equal(result.cases[0]?.score, 5 / 7);
+  assert.equal(result.score, 5 / 7);
+});
+
 test("runGoldenDataset averages scored turns for a multi-turn conversation case", async () => {
   const cases: EvalCase[] = [
     {

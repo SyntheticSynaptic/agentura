@@ -6,6 +6,7 @@ interface RunCommandOptions {
   suite?: string;
   verbose?: boolean;
   local?: boolean;
+  allowFallback?: boolean;
   resetBaseline?: boolean;
   locked?: boolean;
 }

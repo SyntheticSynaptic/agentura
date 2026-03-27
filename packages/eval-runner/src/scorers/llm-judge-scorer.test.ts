@@ -204,7 +204,7 @@ test("resolveLlmJudgeProvider returns null and keeps the exact warning text when
   assert.equal(await resolveLlmJudgeProvider({}, { ollamaAvailable: false }), null);
   assert.equal(
     NO_LLM_JUDGE_API_KEY_WARNING,
-    "llm_judge suites skipped: set ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY, or GROQ_API_KEY, or install Ollama (https://ollama.com) to run them"
+    "llm_judge needs a language model to run.\nAdd an API key for Anthropic, OpenAI, Gemini, or Groq,\nor start Ollama locally (ollama.com).\nThis suite will be skipped."
   );
 });
 
