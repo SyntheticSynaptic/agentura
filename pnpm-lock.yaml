@@ -105,6 +105,9 @@ importers:
 
   apps/worker:
     dependencies:
+      '@agentura/core':
+        specifier: workspace:^
+        version: link:../../packages/core
       '@agentura/db':
         specifier: workspace:^
         version: link:../../packages/db
@@ -204,6 +207,19 @@ importers:
         specifier: ^5.7.3
         version: 5.9.3
 
+  packages/core:
+    dependencies:
+      '@agentura/eval-runner':
+        specifier: workspace:*
+        version: link:../eval-runner
+      '@agentura/types':
+        specifier: workspace:*
+        version: link:../types
+    devDependencies:
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+
   packages/db:
     dependencies:
       '@prisma/client':
@@ -216,16 +232,6 @@ importers:
       prisma:
         specifier: ^6.4.1
         version: 6.19.2(typescript@5.9.3)
-      typescript:
-        specifier: ^5.7.3
-        version: 5.9.3
-
-  packages/core:
-    dependencies:
-      '@agentura/types':
-        specifier: workspace:*
-        version: link:../types
-    devDependencies:
       typescript:
         specifier: ^5.7.3
         version: 5.9.3
