@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #07080d;
+  --surface: #111423;
+  --surface2: #171b2d;
+  --border: rgba(148, 163, 184, 0.2);
+  --amber: #f59e0b;
+  --amber-dim: rgba(245, 158, 11, 0.16);
+  --cyan: #22d3ee;
+  --cyan-dim: rgba(34, 211, 238, 0.14);
+  --green: #22c55e;
+  --green-dim: rgba(34, 197, 94, 0.12);
+  --red: #ef4444;
+  --red-dim: rgba(239, 68, 68, 0.12);
+  --text: #edf1ff;
+  --muted: #9aa3bd;
+  --mono: "JetBrains Mono", monospace;
+  --display: "Sora", sans-serif;
+  --body: "IBM Plex Sans", sans-serif;
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  overflow-x: hidden;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  overflow-x: hidden;
+  background:
+    radial-gradient(1200px 500px at 85% -10%, rgba(34, 211, 238, 0.16), transparent 58%),
+    radial-gradient(900px 420px at 10% 8%, rgba(245, 158, 11, 0.12), transparent 54%),
+    var(--bg);
+  color: var(--text);
+  font-family: var(--body);
+}
+
+a,
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+::selection {
+  background: var(--cyan-dim);
+}
