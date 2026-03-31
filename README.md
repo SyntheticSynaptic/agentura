@@ -4,106 +4,57 @@
 [![CI](https://github.com/SyntheticSynaptic/agentura/actions/workflows/ci.yml/badge.svg)](https://github.com/SyntheticSynaptic/agentura/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-CI/CD eval platform for AI agents. Catch regressions before they reach production.
+**Make sure your AI agent still works after every change.**
 
-![Agentura demo](https://raw.githubusercontent.com/SyntheticSynaptic/agentura/main/docs/demo.gif)
+Agentura tests your agent on every pull request and tells you
+what broke before you merge. Like pytest, but for AI agents.
 
-## Try it in 60 seconds (no signup required)
+→ **[Try it live: agentura-playground.vercel.app](https://agentura-playground.vercel.app)**
+
+Run a real baseline vs branch comparison in your browser. No install. No account.
+
+---
+
+## Try it in 60 seconds
+
+No signup. No GitHub App. Runs entirely on your machine.
 
 ```bash
 npx agentura@latest init
 npx agentura@latest run --local
 ```
 
-`--local` mode runs your eval suites entirely on your machine —
-no login, no GitHub App, no cloud calls required.
+`init` generates an `agentura.yaml` config and a baseline snapshot.
+`run --local` scores your agent against expected outputs and shows
+you exactly what passed, what failed, and what regressed.
 
-## What it does
+---
 
-- Catches regressions before production — shows exactly which
-  cases flipped, not just aggregate scores
-- Five eval strategies: golden_dataset, llm_judge, performance,
-  tool_use, and multi-turn conversation evals
-- Semantic similarity scoring — stops failing semantically
-  correct answers that use different wording
-- LLM judge majority vote — runs judge N times, reports
-  agreement rate, flags unreliable results
-- Locked mode and audit manifests for regulated environments
-- Clinical governance audit reports — generate a single HTML
-  artifact for CMIO and FDA PCCP review
-- Works with any agent: OpenAI, Anthropic, LangChain, or any
-  HTTP endpoint
-- Self-hostable and open source (MIT)
+## What problem does this solve?
 
-## Multi-turn eval
+You push a change. Your agent behaves differently. You find out
+from a user, not from a test.
 
-Most eval tools only test single questions. Agentura tests
-whether your agent behaves consistently across realistic
-multi-step workflows.
+Agentura catches this before merge:
 
-```json
-{
-  "conversation": [
-    {"role": "user", "content": "I'm on the Pro plan, what storage do I get?"},
-    {"role": "assistant", "expected": "Pro plan includes 100GB storage"},
-    {"role": "user", "content": "Can I upgrade individual team members?"},
-    {"role": "assistant", "expected": "Yes, you can manage seats in Settings > Team"}
-  ],
-  "eval_turns": [2, 4]
-}
-```
+- You updated the system prompt — did accuracy drop?
+- Your model provider pushed a silent update — did tone shift?
+- You added a new tool — are the right ones being called?
+- You cut the system prompt to reduce costs — did safety regress?
 
-This catches failures that single-turn evals miss:
-- Agent honors constraints from turn 1 but drifts by turn 4
-- Agent gives tier-specific answers only when account context
-  was established earlier in the conversation
-- Agent references specific details from prior turns rather
-  than giving generic responses
+A GitHub Action runs your tests. Agentura is the tests.
 
-See [examples/anthropic-agent](examples/anthropic-agent) for
-a complete walkthrough.
+---
 
-## Quick Start (with GitHub integration)
+## How it works
 
-1. Install the GitHub App →
-   https://github.com/apps/agenturaci/installations/new
-2. Add `agentura.yaml` to your repo root
-3. Add your eval dataset
-4. Open a PR — results appear as a PR comment and Check Run
-
-Full guide: [docs/quickstart.md](docs/quickstart.md)
-
-## Works with any agent
-
-| Framework | Example |
-|---|---|
-| OpenAI Agents SDK | [examples/openai-agent](examples/openai-agent) |
-| Anthropic Claude | [examples/anthropic-agent](examples/anthropic-agent) |
-| LangChain | [examples/langchain-agent](examples/langchain-agent) |
-| Any HTTP endpoint | [examples/http-agent](examples/http-agent) |
-
-## GitHub Actions
-
-Add eval to any repo in one step:
-
-```yaml
-- uses: SyntheticSynaptic/agentura@main
-  with:
-    config: agentura.yaml
-  env:
-    ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-```
-
-Full docs: [docs/github-action.md](docs/github-action.md)
-
-## Configuration
+**1. Define expected behaviors in YAML**
 
 ```yaml
 version: 1
 agent:
   type: http
-  endpoint: https://your-agent.example.com/api/agent
-  timeout_ms: 10000
+  endpoint: https://your-agent.example.com/invoke
 evals:
   - name: accuracy
     type: golden_dataset
@@ -129,24 +80,16 @@ ci:
   post_comment: true
 ```
 
-## Eval Strategies
+**2. Run locally to set a baseline**
 
-| Strategy | Use case | Requires |
-|---|---|---|
-| `golden_dataset` | Exact, fuzzy, or semantic match | Nothing (semantic needs API key) |
-| `llm_judge` | Tone, helpfulness, quality | Any LLM API key |
-| `tool_use` | Tool invocation and argument validation | Nothing |
-| `performance` | Latency and cost guardrails | Nothing |
-| Multi-turn | Conversational agent testing | Nothing |
+```bash
+agentura run --local
+```
 
-LLM judge and semantic similarity auto-detect your provider:
-set `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`,
-or `GROQ_API_KEY`, or run Ollama locally.
+Agentura calls your agent, scores every case, and saves a baseline
+snapshot in `.agentura/baseline.json`.
 
-## Regression Diff
-
-After the first run, Agentura saves a baseline. Every subsequent
-run shows exactly what changed:
+**3. Every PR is compared to that baseline**
 
 ```
 Regressions (2 cases flipped from pass to fail):
@@ -156,38 +99,80 @@ Regressions (2 cases flipped from pass to fail):
 
 Improvements (1 case flipped from fail to pass):
   ✓ case_12: "How do I reset my password?"
+
+→ Merge blocked: accuracy suite below threshold
 ```
 
-Reset baseline after intentional changes:
-```bash
-agentura run --local --reset-baseline
+Results post directly to your pull request as a comment and
+GitHub Check Run.
+
+---
+
+## Eval strategies
+
+| Strategy | What it tests | Requires |
+|---|---|---|
+| `golden_dataset` | Exact, fuzzy, or semantic match | Nothing (semantic needs API key) |
+| `llm_judge` | Tone, helpfulness, quality | Any LLM API key |
+| `tool_use` | Tool invocation and argument validation | Nothing |
+| `performance` | Latency and cost guardrails | Nothing |
+| Multi-turn | Conversational agent behavior across turns | Nothing |
+
+LLM judge and semantic similarity auto-detect your provider:
+set `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`,
+or `GROQ_API_KEY`, or run Ollama locally with no API key at all.
+
+---
+
+## Multi-turn eval
+
+Most eval tools only test single questions. Agentura tests whether
+your agent behaves consistently across a full conversation.
+
+```json
+{
+  "conversation": [
+    {"role": "user", "content": "I am on the Pro plan, what storage do I get?"},
+    {"role": "assistant", "expected": "Pro plan includes 100GB storage"},
+    {"role": "user", "content": "Can I upgrade individual team members?"},
+    {"role": "assistant", "expected": "Yes, you can manage seats in Settings > Team"}
+  ],
+  "eval_turns": [2, 4]
+}
 ```
 
-## Audit Mode (for regulated environments)
+This catches failures that single-turn evals miss — agents that
+drift from constraints established earlier in the conversation,
+or give generic answers when they should reference prior context.
 
-Every run writes `.agentura/manifest.json` with dataset hashes,
-CLI version, git sha, and per-suite results.
+---
 
-Lock datasets to catch unintended changes:
-```bash
-agentura run --local --locked
+## Works with any agent
+
+| Framework | Example |
+|---|---|
+| OpenAI Agents SDK | [examples/openai-agent](examples/openai-agent) |
+| Anthropic Claude | [examples/anthropic-agent](examples/anthropic-agent) |
+| LangChain | [examples/langchain-agent](examples/langchain-agent) |
+| Any HTTP endpoint | [examples/http-agent](examples/http-agent) |
+
+Your agent just needs to expose an HTTP endpoint. No SDK required.
+
+---
+
+## GitHub Actions
+
+```yaml
+- uses: SyntheticSynaptic/agentura@main
+  with:
+    config: agentura.yaml
+  env:
+    ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 ```
 
-Exits with code 1 if any dataset changed since baseline.
-Designed for environments requiring audit trails.
+Full docs: [docs/github-action.md](docs/github-action.md)
 
-Generate a clinical governance report from local traces,
-eval history, consensus logs, and drift checks:
-
-```bash
-agentura report \
-  --since 2026-03-01 \
-  --reference v1.0-pre-prompt-change \
-  --out clinical-audit-2026-03.html
-```
-
-See [docs/clinical-report.md](docs/clinical-report.md) for the
-full workflow.
+---
 
 ## Comparison
 
@@ -206,15 +191,47 @@ full workflow.
 | Audit manifests | ✅ | ❌ | ❌ | ❌ |
 | Locked dataset mode | ✅ | ❌ | ❌ | ❌ |
 
+---
+
+## For regulated environments
+
+Agentura includes a clinical governance layer for teams building
+AI agents in healthcare, finance, or other regulated domains.
+
+- **Audit manifests** — every run writes dataset hashes, CLI version,
+  git sha, and per-suite results to `.agentura/manifest.json`
+- **Locked mode** — exits 1 if any dataset changed since baseline,
+  for environments requiring reproducible eval sets
+- **Behavioral drift detection** — compare against a frozen reference
+  snapshot to detect gradual drift over time
+- **Heterogeneous consensus** — run the same query across multiple
+  model families and require agreement before accepting an output
+- **Clinical audit report** — generate a single self-contained HTML
+  artifact for CMIO review and FDA PCCP documentation
+
+```bash
+agentura run --local --locked --drift-check
+agentura report --since 2026-03-01 --out audit-march.html
+```
+
+See [docs/clinical-report.md](docs/clinical-report.md).
+
+---
+
 ## Self-hosting
 
-Agentura is fully open source. See
-[docs/self-hosting.md](docs/self-hosting.md) to run your own
-instance.
+Agentura is fully open source. Run your own instance:
+[docs/self-hosting.md](docs/self-hosting.md)
+
+---
 
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
+Good first issues are labeled in the
+[issue tracker](https://github.com/SyntheticSynaptic/agentura/issues).
+
+---
 
 ## License
 
