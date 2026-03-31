@@ -2,206 +2,99 @@
 
 import Link from "next/link";
 
-const OSS_TERMINAL_LINES = [
-  "$ bunx agentura init",
-  "  Generated agentura.yaml + starter eval suites",
-  "$ bunx agentura run",
-  "  ✓ Local eval complete · baseline snapshot stored",
-  "$ git checkout -b feat/new-retriever",
-  "$ git push origin feat/new-retriever",
-  "  PR opened → Agentura checks posted automatically",
+const TERMINAL_LINES = [
+  "$ bunx agentura init        # generate config + baseline",
+  "$ git checkout -b my-branch",
+  "$ git push                  # eval checks run automatically on PR",
 ];
 
 export function OpenSourceSection() {
   return (
     <section id="open-source" className="open-source-section">
       <header className="section-head">
-        <p className="eyebrow">OPEN SOURCE</p>
-        <h2>FREE AND OPEN SOURCE — MIT License. Self-host in minutes. Own your eval data.</h2>
+        <p className="section-label">OPEN SOURCE</p>
+        <h2 className="display-lg">Free to use. Free to self-host.</h2>
       </header>
 
-      <div className="oss-grid">
-        <article className="oss-card">
-          <h3>Get started in 3 steps:</h3>
-          <ol>
-            <li>Run `bunx agentura init` and generate a starter `agentura.yaml`.</li>
-            <li>Point Agentura at your real eval files and baseline branch.</li>
-            <li>Open a PR and let the merge gate enforce behavior quality by default.</li>
-          </ol>
-          <div className="oss-links">
-            <a href="https://github.com/SyntheticSynaptic/agentura" target="_blank" rel="noreferrer">
-              GitHub Repo
-            </a>
-            <Link href="/docs">Documentation</Link>
-            <Link href="/docs/quickstart">Quickstart</Link>
-          </div>
-        </article>
+      <div className="open-shell">
+        <div className="terminal-block">
+          {TERMINAL_LINES.map((line) => (
+            <div key={line} className="terminal-line">
+              {line}
+            </div>
+          ))}
+        </div>
 
-        <article className="terminal-shell">
-          <header className="terminal-header">
-            <span className="window-dot dot-red" />
-            <span className="window-dot dot-amber" />
-            <span className="window-dot dot-green" />
-            <p className="window-title">terminal · open-source flow</p>
-          </header>
-          <div className="terminal-body">
-            {OSS_TERMINAL_LINES.map((line) => (
-              <div key={line} className="terminal-line">
-                {line.startsWith("$") ? (
-                  <>
-                    <span className="terminal-prompt">$</span>
-                    <span className="terminal-cmd">{line.slice(1)}</span>
-                  </>
-                ) : (
-                  <span className={line.includes("✓") ? "terminal-pass" : line.includes("PR opened") ? "terminal-accent" : "terminal-info"}>
-                    {line}
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
-        </article>
+        <div className="open-actions">
+          <a href="https://github.com/SyntheticSynaptic/agentura" target="_blank" rel="noreferrer">
+            GitHub Repo
+          </a>
+          <Link href="/docs">Read the Docs</Link>
+        </div>
+
+        <p className="caption">MIT License · Self-host in minutes · Own your eval data</p>
       </div>
 
       <style jsx>{`
         .open-source-section {
-          margin-top: 88px;
+          margin-top: 92px;
         }
 
-        .section-head h2 {
-          margin: 0;
-          max-width: 900px;
-          font-family: var(--display);
-          font-size: clamp(1.8rem, 3.8vw, 3rem);
-          letter-spacing: -0.04em;
-        }
-
-        .eyebrow {
+        .section-label {
           margin: 0 0 14px;
-          font-family: var(--mono);
-          font-size: 11px;
+          color: var(--teal);
+          font-size: 12px;
+          font-weight: 600;
           letter-spacing: 0.12em;
           text-transform: uppercase;
-          color: var(--cyan);
         }
 
-        .oss-grid {
-          margin-top: 18px;
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 16px;
-        }
-
-        .oss-card,
-        .terminal-shell {
-          overflow: hidden;
-          border: 1px solid var(--border);
-          background: rgba(17, 20, 35, 0.82);
-        }
-
-        .oss-card {
-          padding: 18px;
-        }
-
-        .oss-card h3 {
+        h2 {
           margin: 0;
-          font-family: var(--display);
-          font-size: 24px;
-          letter-spacing: -0.03em;
         }
 
-        .oss-card ol {
-          margin: 14px 0 0;
-          padding-left: 18px;
-          color: var(--muted);
+        .open-shell {
+          margin-top: 24px;
+          max-width: 860px;
+        }
+
+        .terminal-block {
+          border: 1px solid var(--border);
+          border-radius: 16px;
+          background: #060b15;
+          padding: 20px;
+          font-family: var(--mono);
+          font-size: 13px;
           line-height: 1.9;
+          color: var(--text);
         }
 
-        .oss-links {
+        .open-actions {
           margin-top: 18px;
           display: flex;
+          gap: 12px;
           flex-wrap: wrap;
-          gap: 10px;
         }
 
-        .oss-links a {
+        .open-actions a {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 44px;
           border: 1px solid var(--border);
-          background: rgba(23, 27, 45, 0.86);
-          padding: 8px 11px;
-          font-size: 13px;
+          border-radius: 999px;
+          padding: 0 16px;
+          font-family: var(--body);
+          font-size: 14px;
+          font-weight: 500;
           color: var(--text);
           text-decoration: none;
         }
 
-        .terminal-header {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          border-bottom: 1px solid var(--border);
-          background: rgba(23, 27, 45, 0.9);
-          padding: 12px 14px;
-        }
-
-        .window-dot {
-          width: 9px;
-          height: 9px;
-          border-radius: 50%;
-        }
-
-        .dot-red {
-          background: #fb7185;
-        }
-
-        .dot-amber {
-          background: var(--amber);
-        }
-
-        .dot-green {
-          background: var(--green);
-        }
-
-        .window-title {
-          margin: 0 0 0 6px;
-          font-family: var(--mono);
-          font-size: 11px;
-          letter-spacing: 0.06em;
-          text-transform: uppercase;
+        .caption {
+          margin: 14px 0 0;
           color: var(--muted);
-        }
-
-        .terminal-body {
-          padding: 16px;
-          font-family: var(--mono);
-          font-size: 12px;
-          line-height: 1.75;
-        }
-
-        .terminal-line {
-          white-space: pre-wrap;
-        }
-
-        .terminal-prompt,
-        .terminal-accent {
-          color: var(--amber);
-        }
-
-        .terminal-cmd {
-          color: var(--text);
-          padding-left: 2px;
-        }
-
-        .terminal-info {
-          color: var(--muted);
-        }
-
-        .terminal-pass {
-          color: var(--green);
-        }
-
-        @media (max-width: 1024px) {
-          .oss-grid {
-            grid-template-columns: 1fr;
-          }
+          font-size: 14px;
         }
       `}</style>
     </section>

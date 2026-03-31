@@ -2573,3 +2573,128 @@ Run a live playground check with a configured `ANTHROPIC_API_KEY`, add a real fa
 
 **Next session:**
 Decide whether worker-side and cloud-triggered eval runs should emit the same immutable audit records so the clinical report can span local and hosted evidence uniformly.
+
+## Session — 2026-03-28 08:23 UTC
+
+**Milestone:** User brief — Agentura Playground standalone app
+**Status:** COMPLETE
+
+**Files created:**
+- `apps/playground/package.json` — added the standalone Next.js playground workspace with Groq and Upstash dependencies
+- `apps/playground/tsconfig.json` — configured strict TypeScript for the new app
+- `apps/playground/next-env.d.ts` — added the standard Next.js type entrypoint for repo-wide type checks
+- `apps/playground/next.config.mjs` — added the Next.js config scaffold for the standalone app
+- `apps/playground/postcss.config.js` — added Tailwind/PostCSS wiring
+- `apps/playground/tailwind.config.ts` — added Tailwind content config for the app
+- `apps/playground/.env.example` — documented the required Groq, Upstash, and main-site env vars
+- `apps/playground/src/app/layout.tsx` — added playground metadata and shared font imports
+- `apps/playground/src/app/globals.css` — copied the landing-page design tokens and global theme shell
+- `apps/playground/src/app/page.tsx` — added the standalone playground landing screen and main layout
+- `apps/playground/src/app/api/eval/route.ts` — implemented the Groq-backed eval route with Upstash sliding-window rate limiting
+- `apps/playground/src/components/PlaygroundInput.tsx` — implemented the scenario picker, cooldown flow, result rendering, and share-by-URL behavior
+
+**Files modified:**
+- `apps/web/src/app/page.tsx` — pointed the marketing-site nav `Try It →` link at the standalone playground subdomain
+- `apps/web/src/components/landing/HeroSection.tsx` — pointed the hero CTA at the standalone playground subdomain
+- `pnpm-lock.yaml` — recorded the new playground workspace dependency graph
+- `docs/Documentation.md` — appended this session summary
+
+**Decisions made:**
+- The standalone playground lives in `apps/playground` as its own Next.js app while reusing the same visual tokens as `apps/web`, which keeps the demo visually aligned without coupling it to the marketing site runtime.
+- The Groq and Upstash clients remain module-scoped, but they are instantiated conditionally when env vars are present so local and CI builds do not fail during route-module evaluation.
+- The existing landing page keeps its broader structure, and only the top-level playground entry links were changed to the dedicated subdomain to stay inside the supplied brief.
+
+**Validation results:**
+- `pnpm --filter @agentura/playground type-check`: PASS
+- `pnpm --filter @agentura/playground build`: PASS
+- `pnpm run type-check`: PASS
+- `pnpm run build`: PASS
+
+**Issues found:**
+- Local `next build` emitted non-blocking warnings when it could not fetch the Google Fonts stylesheet in this network-restricted environment; the playground still built successfully.
+
+**Next session:**
+Create the separate Vercel project for `apps/playground`, add `GROQ_API_KEY`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, and `NEXT_PUBLIC_MAIN_SITE_URL`, then alias `playground.agentura-ci.vercel.app`.
+
+## Session — 2026-03-29 02:31 UTC
+
+**Milestone:** 15 — Landing Page + Waitlist + Pricing (website redesign v3)
+**Status:** COMPLETE
+
+**Files created:**
+- `docs/plans/2026-03-28-agentura-website-redesign-design.md` — captured the approved visual and copy direction for the homepage rewrite
+- `docs/plans/2026-03-28-agentura-website-redesign.md` — recorded the implementation plan for the redesign pass
+- `apps/web/src/components/landing/ProblemSection.tsx` — added the new three-card problem section with inline SVG icons and scroll-in reveals
+- `apps/web/src/components/landing/HowItWorksSection.tsx` — added the new three-step workflow section, drift note, quorum callout, and demo mount
+- `apps/web/src/components/landing/TerminalDemo.tsx` — added the dependency-free scripted terminal replay with Run/Reset controls and semantic output colors
+
+**Files modified:**
+- `apps/web/src/app/page.tsx` — rebuilt the homepage shell to the new seven-part structure and removed the comparison/social-proof/playground sections
+- `apps/web/src/app/layout.tsx` — replaced the font loading strategy and removed the custom cursor mount
+- `apps/web/src/app/globals.css` — replaced the root design tokens, added the new type scale, and removed the cursor override rules
+- `apps/web/src/components/landing/HeroSection.tsx` — rewrote the hero copy, CTAs, and honest stats strip
+- `apps/web/src/components/landing/PrGateWidget.tsx` — kept the PR gate visual, added the safety row, autoplayed it once, and removed replay controls
+- `apps/web/src/components/landing/StoryModeSection.tsx` — replaced the canned narrative with five interactive data tabs, progress timing, and true manual-click pause behavior
+- `apps/web/src/components/landing/OpenSourceSection.tsx` — simplified the section to the requested terminal block, buttons, and caption
+- `apps/web/src/components/landing/SiteFooter.tsx` — simplified the footer copy and link set
+- `apps/web/src/components/landing/ComparisonSection.tsx` — removed the obsolete comparison-table section
+- `apps/web/src/components/landing/SocialProofStrip.tsx` — removed the obsolete social-proof strip
+- `apps/web/src/components/landing/CustomCursor.tsx` — removed the obsolete crosshair cursor component
+- `docs/Documentation.md` — appended this session summary
+
+**Decisions made:**
+- Used a dependency-free scripted replay component instead of `xterm.js`, which keeps the demo lightweight and avoids unnecessary bundle and SSR complexity.
+- Manual Story Mode tab clicks now pause auto-rotation, so user-driven inspection takes priority over autoplay.
+- Replaced fabricated metrics and dramatic/competitive copy with plain-language sections, honest stats, and a navy/blue/teal visual system aligned to the approved brief.
+
+**Validation results:**
+- `pnpm --filter @agentura/web type-check`: PASS
+- `pnpm --filter @agentura/web build`: PASS
+- `pnpm run type-check`: PASS
+- `git diff --check`: PASS
+- Playwright sanity pass against `http://127.0.0.1:3002`: PASS for homepage structure, desktop/mobile layout, and Story Mode manual tab pause after 8 seconds
+
+**Issues found:**
+- `pnpm --filter @agentura/web build` emitted non-blocking Google Fonts optimization warnings in this network-restricted environment and Upstash DNS resolution warnings for `amused-calf-63442.upstash.io`, but the build completed successfully.
+- Local dev console showed missing Vercel analytics/speed-insights scripts and a `favicon.ico` 404; landing-page functionality was unaffected.
+
+**Next session:**
+Add a real favicon and decide whether the docs pages should be refreshed to match the new plain-language homepage positioning.
+
+## Session — 2026-03-30 17:10 UTC
+
+**Milestone:** 15 — Landing Page + Waitlist + Pricing (homepage conversion update)
+**Status:** COMPLETE
+
+**Files created:**
+- `apps/web/src/components/landing/PlaygroundCtaSection.tsx` — added the new high-priority playground conversion section with the static regression-result preview card
+
+**Files modified:**
+- `apps/web/src/app/page.tsx` — moved the playground section ahead of the terminal/story sections, updated nav links, and kept the homepage section order aligned with the new conversion ladder
+- `apps/web/src/app/layout.tsx` — updated the homepage metadata description to match the revised hero message
+- `apps/web/src/components/landing/HeroSection.tsx` — replaced the hero headline, subhead, tagline, CTA copy, technical strip, and stat presentation
+- `apps/web/src/components/landing/PrGateWidget.tsx` — replaced the old auto-play gate widget with the two-tab regression/pass state version and the new status copy
+- `apps/web/src/components/landing/StoryModeSection.tsx` — updated the section headline and the five scenario one-line descriptions
+- `apps/web/src/components/landing/HowItWorksSection.tsx` — removed the embedded terminal demo mount and added the pytest-style GitHub Action callout
+- `apps/web/src/components/landing/TerminalDemo.tsx` — converted the terminal demo into its own standalone section that sits after the playground CTA
+- `apps/web/src/components/landing/SiteFooter.tsx` — updated the footer playground link to the standalone playground URL
+- `docs/Documentation.md` — appended this session summary
+
+**Decisions made:**
+- The playground CTA now appears before Story Mode because live proof is the main conversion step after comprehension and PR-gate credibility.
+- The PR widget defaults to the failing state but exposes a passing state with `useState`, which keeps the comparison interactive without adding external dependencies or API calls.
+- The current homepage commit includes the broader redesign files already present in the working tree so the resulting `main` commit stays self-contained and buildable.
+
+**Validation results:**
+- `pnpm --filter @agentura/web type-check`: PASS
+- `pnpm --filter @agentura/web build`: PASS
+- `pnpm run type-check`: PASS
+- `git diff --check`: PASS
+- Local rendered homepage verification via fetched dev-server HTML from `http://127.0.0.1:3002`: PASS for updated nav links, hero copy, playground CTA placement, story headline, and footer content/order
+
+**Issues found:**
+- `pnpm --filter @agentura/web build` still emitted non-blocking Google Fonts optimization warnings in this network-restricted environment and Upstash DNS warnings for `amused-calf-63442.upstash.io`, but the build completed successfully.
+- Playwright browser verification was blocked by a host-level temp-directory issue (`/.playwright-mcp` on a read-only filesystem), so final UI verification used the local dev server HTML plus source inspection for the PR-widget tab interaction.
+
+**Next session:**
+Restore full local browser automation for landing-page checks or keep relying on fetched HTML plus build validation until the Playwright temp-directory issue is resolved.
