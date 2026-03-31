@@ -14,7 +14,7 @@ export function SiteFooter() {
         <a href="https://www.npmjs.com/package/agentura" target="_blank" rel="noreferrer">
           npm
         </a>
-        <a href="https://agentura-playground.vercel.app" target="_blank" rel="noreferrer">
+        <a href="https://playground.agentura.run" target="_blank" rel="noreferrer">
           Playground
         </a>
         <a href="https://github.com/SyntheticSynaptic/agentura/blob/main/LICENSE" target="_blank" rel="noreferrer">

@@ -60,7 +60,7 @@ cd packages/cli && npx tsx src/index.ts run
 | 10 | Baseline comparison + regression | ✅ Complete | Baseline comparison runs on PR evals, regressions/improvements are surfaced in PR comments, and check run conclusion honors `block_on_regression` |
 | 11 | Web dashboard: project + run views | ✅ Complete | `/dashboard`, project detail, and run detail pages validated end-to-end with expandable suite case rows and compact sparkline trend |
 | 12 | CLI: login + sync | ✅ Complete | `agentura login`, `agentura init`, and `agentura run` implemented with local config storage, YAML/dataset loading, colored output, and validated exit-code behavior |
-| 13 | Production Deployment | ✅ Complete | Production live: web on Vercel (`https://agentura-ci.vercel.app`), worker on Railway, OAuth working, and production PR checks/comments verified |
+| 13 | Production Deployment | ✅ Complete | Production live: web on Vercel (`https://agentura.run`), worker on Railway, OAuth working, and production PR checks/comments verified |
 | 14 | API Key Management | ✅ Complete | API key management shipped end-to-end (create/list/revoke), one-time raw key reveal enforced, and CLI login validated with generated keys |
 | 15 | Landing Page + Waitlist + Pricing | ✅ Complete | Public landing page shipped with hero, social proof, PR comment mockup, feature grid, 3-tier pricing, and waitlist submission endpoint |
 | 16 | CLI Auth Flow | ✅ Complete | Browser auth flow validated end-to-end, CLI key saved to `~/.agentura/config.json`, and token exchange persistence moved from in-memory storage to Prisma for serverless reliability |
@@ -258,6 +258,41 @@ Milestone 11 — implement CLI `init` + `run` flow and validate local eval execu
   - `/dashboard/[owner]/[repo]` run history + sparkline
   - `/dashboard/[owner]/[repo]/runs/[runId]` full run detail
   - Expandable suite case rows, judgeReason visibility, and performance latency display
+
+---
+
+## Session — 2026-03-31 09:25 UTC
+
+**Milestone:** 19 — Dashboard Polish + Settings
+**Status:** IN PROGRESS
+
+**Files created:**
+- None
+
+**Files modified:**
+- `README.md` — updated the public playground URL to `https://playground.agentura.run`
+- `packages/cli/README.md` — mirrored the new public playground URL for the npm package README
+- `apps/playground/src/app/page.tsx` — updated homepage and docs links to `https://agentura.run`
+- `apps/web/src/app/page.tsx` — updated the landing-page playground URL to `https://playground.agentura.run`
+- `apps/web/src/components/landing/PlaygroundCtaSection.tsx` — updated the playground CTA domain
+- `apps/web/src/components/landing/HeroSection.tsx` — updated the hero playground domain
+- `apps/web/src/components/landing/SiteFooter.tsx` — updated the footer playground link
+- `apps/web/src/app/docs/cli/installation/page.tsx` — updated hardcoded dashboard settings links to `https://agentura.run`
+- `apps/web/src/app/docs/cli/login/page.tsx` — updated hardcoded auth/settings URLs to `https://agentura.run`
+- `docs/Documentation.md` — replaced legacy production-domain references and appended this session log
+
+**Decisions made:**
+- Replaced only public hardcoded production URLs requested by the domain migration and left localhost/internal URLs untouched.
+
+**Validation results:**
+- `rg -n "https://agentura-ci\\.vercel\\.app|https://agentura-playground\\.vercel\\.app" apps/web/src apps/playground/src README.md packages/cli/README.md docs --glob '!**/*test*' --glob '!**/*.spec.*' --glob '!**/*.test.*'`: PASS
+- `pnpm run type-check`: PASS
+
+**Issues found:**
+- None
+
+**Next session:**
+Milestone 19 — continue dashboard polish and settings work now that all public links point at `agentura.run` and `playground.agentura.run`.
 
 **Issues found:**
 - Test cleanup command was a no-op in this session because `M10_TEST.md`, `M9_TEST.md`, `M8_TEST.md`, and `M7_TEST.md` were already absent from `main`.
@@ -1121,7 +1156,7 @@ Milestone 13 — inspect Railway startup logs for debug env output and finalize 
 
 **Validation results:**
 - Manual production smoke test: PASS
-  - Vercel live at `https://agentura-ci.vercel.app`
+  - Vercel live at `https://agentura.run`
   - Railway worker running and processing jobs
   - GitHub OAuth login works in production
   - Production PR triggers Check Run and PR comment
@@ -1239,7 +1274,7 @@ Milestone 16 — run local/browser validation of `/cli-auth`, confirm CLI login 
 - `apps/web/src/app/(auth)/login/page.tsx` — added `redirect` query handling and OAuth callback forwarding
 - `apps/web/src/app/auth/callback/route.ts` — added safe post-auth redirect via `next` query param
 - `packages/cli/src/commands/login.ts` — switched to device flow (request token, open browser, poll exchange, save API key) with `--manual` fallback
-- `packages/cli/src/lib/config.ts` — default base URL updated to production (`https://agentura-ci.vercel.app`) unless `AGENTURA_BASE_URL` is set
+- `packages/cli/src/lib/config.ts` — default base URL updated to production (`https://agentura.run`) unless `AGENTURA_BASE_URL` is set
 - `packages/cli/src/index.ts` — added `--manual` option to `agentura login`
 - `docs/Documentation.md` — updated current milestone status and appended this session handoff
 

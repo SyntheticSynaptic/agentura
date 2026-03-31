@@ -1,6 +1,6 @@
 "use client";
 
-const playgroundUrl = "https://agentura-playground.vercel.app";
+const playgroundUrl = "https://playground.agentura.run";
 
 const PREVIEW_ROWS = [
   { label: "Accuracy", values: "0.94 → 0.71", delta: "-0.23", gate: "BLOCK" },

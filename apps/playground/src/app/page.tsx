@@ -22,7 +22,7 @@ export default function HomePage() {
         }}
       >
         <a
-          href="https://agentura-ci.vercel.app"
+          href="https://agentura.run"
           style={{
             fontFamily: "'Plus Jakarta Sans', sans-serif",
             fontWeight: 700,
@@ -48,7 +48,7 @@ export default function HomePage() {
             GitHub
           </a>
           <a
-            href="https://agentura-ci.vercel.app/docs"
+            href="https://agentura.run/docs"
             style={{
               fontFamily: "Inter, sans-serif",
               fontSize: "14px",

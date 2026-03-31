@@ -39,12 +39,12 @@ export default function DocsCliInstallationPage() {
         <p className="mb-4 mt-4 text-sm leading-relaxed text-slate-300">
           Use this if you prefer to paste an API key directly. Generate one at{" "}
           <a
-            href="https://agentura-ci.vercel.app/dashboard/settings/api-keys"
+            href="https://agentura.run/dashboard/settings/api-keys"
             target="_blank"
             rel="noreferrer"
             className="text-violet-300 hover:text-violet-200"
           >
-            agentura-ci.vercel.app/dashboard/settings/api-keys
+            agentura.run/dashboard/settings/api-keys
           </a>
           .
         </p>

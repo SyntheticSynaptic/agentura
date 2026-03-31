@@ -3,7 +3,7 @@ import { ProseSection } from "../../../../components/docs/ProseSection";
 
 const configExample = `{
   "apiKey": "agt_...",
-  "baseUrl": "https://agentura-ci.vercel.app"
+  "baseUrl": "https://agentura.run"
 }`;
 
 export default function DocsCliLoginPage() {
@@ -21,7 +21,7 @@ export default function DocsCliLoginPage() {
         <p className="mb-4 text-sm leading-relaxed text-slate-300">
           Opens a browser window to{" "}
           <code className="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-xs text-violet-300">
-            agentura-ci.vercel.app/cli-auth
+            agentura.run/cli-auth
           </code>
           . Log in with GitHub if needed, then click Approve. Your API key is saved automatically
           to{" "}
@@ -40,12 +40,12 @@ export default function DocsCliLoginPage() {
         <p className="mb-4 mt-4 text-sm leading-relaxed text-slate-300">
           Prompts you to paste an API key directly. Generate one at:{" "}
           <a
-            href="https://agentura-ci.vercel.app/dashboard/settings/api-keys"
+            href="https://agentura.run/dashboard/settings/api-keys"
             target="_blank"
             rel="noreferrer"
             className="text-violet-300 hover:text-violet-200"
           >
-            agentura-ci.vercel.app/dashboard/settings/api-keys
+            agentura.run/dashboard/settings/api-keys
           </a>
         </p>
       </section>

@@ -10,7 +10,7 @@ import { ProblemSection } from "../components/landing/ProblemSection";
 import { SiteFooter } from "../components/landing/SiteFooter";
 import { StoryModeSection } from "../components/landing/StoryModeSection";
 
-const playgroundUrl = "https://agentura-playground.vercel.app";
+const playgroundUrl = "https://playground.agentura.run";
 const githubUrl = "https://github.com/SyntheticSynaptic/agentura";
 
 export default function HomePage() {

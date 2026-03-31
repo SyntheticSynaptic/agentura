@@ -9,7 +9,7 @@
 Agentura tests your agent on every pull request and tells you
 what broke before you merge. Like pytest, but for AI agents.
 
-→ **[Try it live: agentura-playground.vercel.app](https://agentura-playground.vercel.app)**
+→ **[Try it live: playground.agentura.run](https://playground.agentura.run)**
 
 Run a real baseline vs branch comparison in your browser. No install. No account.
 

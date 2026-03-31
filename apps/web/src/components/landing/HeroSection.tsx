@@ -2,7 +2,7 @@
 
 import { PrGateWidget } from "./PrGateWidget";
 
-const playgroundUrl = "https://agentura-playground.vercel.app";
+const playgroundUrl = "https://playground.agentura.run";
 const githubUrl = "https://github.com/SyntheticSynaptic/agentura";
 
 export function HeroSection() {
