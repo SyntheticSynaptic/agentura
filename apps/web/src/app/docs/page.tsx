@@ -30,6 +30,7 @@ export default function DocsIntroductionPage() {
           What Agentura does
         </h2>
         <ul className="list-disc space-y-2 pl-5 text-sm leading-relaxed text-slate-300">
+          <li>Runs evals locally with no signup required (npx agentura@latest run --local)</li>
           <li>Runs golden dataset, LLM judge, and performance evals automatically on every PR</li>
           <li>Posts results as a GitHub Check Run and PR comment</li>
           <li>

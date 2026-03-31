@@ -75,9 +75,6 @@ export function DocsSidebar() {
         >
           GitHub
         </a>
-        <Link href="/dashboard" className="block py-1 text-sm text-slate-400 transition hover:text-white">
-          Dashboard
-        </Link>
         <Link href="/docs/changelog" className="block py-1 text-sm text-slate-400 transition hover:text-white">
           Changelog
         </Link>

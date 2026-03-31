@@ -16,9 +16,6 @@ export default function DocsLayout({ children }: DocsLayoutProps) {
             <Link href="/" className="text-slate-400 transition hover:text-white">
               Back to Home
             </Link>
-            <Link href="/dashboard" className="text-slate-400 transition hover:text-white">
-              Dashboard
-            </Link>
           </div>
         </div>
       </header>
