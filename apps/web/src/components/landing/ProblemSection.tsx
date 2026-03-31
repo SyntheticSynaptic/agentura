@@ -67,7 +67,7 @@ export function ProblemSection() {
     <section className="problem-section" id="why-this-exists">
       <header className="section-head">
         <p className="section-label">WHY THIS EXISTS</p>
-        <h2 className="display-lg">AI agents break in ways that standard tests miss.</h2>
+        <h2 className="display-lg">Standard tests miss agent behavior changes.</h2>
       </header>
 
       <div ref={ref} className="problem-cards">
@@ -88,7 +88,8 @@ export function ProblemSection() {
 
       <style jsx>{`
         .problem-section {
-          margin-top: 92px;
+          margin-top: 116px;
+          padding-bottom: 24px;
         }
 
         .section-head {

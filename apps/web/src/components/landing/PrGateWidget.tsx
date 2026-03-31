@@ -88,6 +88,8 @@ export function PrGateWidget() {
         </div>
       </article>
 
+      <p className="widget-caption">See what changed, what failed, and whether merge should be blocked.</p>
+
       <style jsx>{`
         .widget-shell {
           text-align: left;
@@ -107,10 +109,10 @@ export function PrGateWidget() {
         }
 
         .state-tab {
-          border: 1px solid transparent;
-          border-radius: 999px;
+          border: none;
+          border-radius: 6px;
           background: transparent;
-          padding: 10px 14px;
+          padding: 6px 14px;
           font-family: var(--body);
           font-size: 14px;
           font-weight: 500;
@@ -118,9 +120,9 @@ export function PrGateWidget() {
         }
 
         .state-tab-active {
-          border-color: var(--border);
-          background: var(--surface2);
-          color: var(--text);
+          background: var(--blue);
+          color: white;
+          font-weight: 600;
         }
 
         .pr-widget {
@@ -129,6 +131,7 @@ export function PrGateWidget() {
           border-radius: 18px;
           background: linear-gradient(180deg, rgba(13, 20, 36, 0.98), rgba(8, 13, 26, 0.98));
           box-shadow: 0 24px 72px rgba(0, 0, 0, 0.28);
+          font-size: 14px;
         }
 
         .widget-content {
@@ -139,7 +142,7 @@ export function PrGateWidget() {
           display: flex;
           flex-direction: column;
           gap: 8px;
-          padding: 14px;
+          padding: 18px;
         }
 
         .suite-row {
@@ -148,11 +151,11 @@ export function PrGateWidget() {
           align-items: center;
           gap: 10px;
           border: 1px solid var(--border);
-          border-left: 2px solid transparent;
+          border-left: 3px solid transparent;
           border-radius: 12px;
-          padding: 10px;
+          padding: 10px 10px 10px 13px;
           font-family: var(--mono);
-          font-size: 12px;
+          font-size: 14px;
         }
 
         .suite-row-pass {
@@ -196,13 +199,13 @@ export function PrGateWidget() {
 
         .widget-footer {
           border-top: 1px solid var(--border);
-          padding: 12px 14px;
+          padding: 16px 18px;
         }
 
         .status-line {
           margin: 0;
           font-family: var(--mono);
-          font-size: 11px;
+          font-size: 12px;
           letter-spacing: 0.03em;
         }
 
@@ -212,6 +215,14 @@ export function PrGateWidget() {
 
         .status-line-pass {
           color: var(--green);
+        }
+
+        .widget-caption {
+          margin: 12px 0 0;
+          color: var(--muted);
+          font-family: var(--body);
+          font-size: 13px;
+          text-align: center;
         }
 
         @keyframes swapIn {

@@ -35,8 +35,7 @@ export function HeroSection() {
         </div>
 
         <div className="hero-tech-strip mono" aria-label="Core product coverage">
-          <p>Catch regressions in accuracy, safety, cost, and guardrails</p>
-          <p>Track drift over time · Keep a full audit trail</p>
+          <p>Catch regressions in accuracy, safety, cost, and guardrails.</p>
         </div>
 
         <div className="hero-stats mono" aria-label="Key product facts">
@@ -73,8 +72,11 @@ export function HeroSection() {
         }
 
         .hero-subhead {
-          max-width: 560px;
+          max-width: 540px;
           margin: 20px auto 0;
+          color: #c4cbdb;
+          font-size: clamp(18px, 2.2vw, 20px);
+          line-height: 1.6;
         }
 
         .hero-tagline {

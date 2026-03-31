@@ -9,7 +9,6 @@ import { PlaygroundCtaSection } from "../components/landing/PlaygroundCtaSection
 import { ProblemSection } from "../components/landing/ProblemSection";
 import { SiteFooter } from "../components/landing/SiteFooter";
 import { StoryModeSection } from "../components/landing/StoryModeSection";
-import { TerminalDemo } from "../components/landing/TerminalDemo";
 
 const playgroundUrl = "https://agentura-playground.vercel.app";
 const githubUrl = "https://github.com/SyntheticSynaptic/agentura";
@@ -56,7 +55,7 @@ export default function HomePage() {
         <ProblemSection />
         <HowItWorksSection />
         <PlaygroundCtaSection />
-        <TerminalDemo />
+        {/* TerminalDemo removed - playground CTA section serves this purpose */}
         <StoryModeSection />
         <OpenSourceSection />
         <SiteFooter />

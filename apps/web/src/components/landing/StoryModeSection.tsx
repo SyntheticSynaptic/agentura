@@ -176,7 +176,8 @@ export function StoryModeSection() {
 
       <style jsx>{`
         .story-section {
-          margin-top: 92px;
+          margin-top: 116px;
+          padding-bottom: 24px;
         }
 
         .section-label {
