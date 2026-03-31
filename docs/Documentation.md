@@ -2698,3 +2698,29 @@ Add a real favicon and decide whether the docs pages should be refreshed to matc
 
 **Next session:**
 Restore full local browser automation for landing-page checks or keep relying on fetched HTML plus build validation until the Playwright temp-directory issue is resolved.
+
+## Session — 2026-03-31 05:51 UTC
+
+**Milestone:** 19 — Dashboard Polish + Settings
+**Status:** IN PROGRESS
+
+**Files created:**
+- None
+
+**Files modified:**
+- `apps/playground/src/app/page.tsx` — removed the duplicate home-destination nav link so `agentura` is the single left-side route back to the main site and replaced the right-side nav link with GitHub
+- `docs/Documentation.md` — appended this session summary
+
+**Decisions made:**
+- Kept the `agentura` brand as the one homepage link instead of introducing a second “Back” control, which removes the duplicate destination without changing the header layout more than necessary.
+
+**Validation results:**
+- `pnpm --filter @agentura/playground type-check`: PASS
+- `pnpm --filter @agentura/playground build`: PASS
+- `pnpm run type-check`: PASS
+
+**Issues found:**
+- `pnpm --filter @agentura/playground build` emitted the existing non-fatal Google Fonts download warning in this network-restricted environment, but the build completed successfully.
+
+**Next session:**
+Continue Milestone 19 polish work, focusing on any remaining playground/header issues after this nav cleanup deploys.

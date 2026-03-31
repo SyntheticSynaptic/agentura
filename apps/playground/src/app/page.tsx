@@ -4,6 +4,7 @@ import { PlaygroundInput } from "../components/PlaygroundInput";
 
 export default function HomePage() {
   const mainSiteUrl = process.env.NEXT_PUBLIC_MAIN_SITE_URL ?? "https://agentura-ci.vercel.app";
+  const githubUrl = "https://github.com/SyntheticSynaptic/agentura";
 
   return (
     <>
@@ -12,8 +13,8 @@ export default function HomePage() {
           <a className="brand" href={mainSiteUrl}>
             agentura
           </a>
-          <a className="back-link" href={mainSiteUrl}>
-            ← Back to Home
+          <a className="nav-link" href={githubUrl} target="_blank" rel="noreferrer">
+            GitHub
           </a>
         </div>
       </nav>
@@ -57,7 +58,7 @@ export default function HomePage() {
             text-decoration: none;
           }
 
-          .back-link {
+          .nav-link {
             color: var(--muted);
             font-family: var(--body);
             font-size: 14px;
