@@ -3,30 +3,61 @@
 import { PlaygroundInput } from "../components/PlaygroundInput";
 
 export default function HomePage() {
-  const mainSiteUrl = "https://agentura-ci.vercel.app";
-  const howItWorksUrl = "https://agentura-ci.vercel.app/#how-it-works";
-  const docsUrl = "https://agentura-ci.vercel.app/docs";
-  const githubUrl = "https://github.com/SyntheticSynaptic/agentura";
-
   return (
     <>
-      <nav className="site-nav">
-        <div className="site-nav-inner">
-          <a className="brand" href={mainSiteUrl}>
-            agentura
+      <nav
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          padding: "0 32px",
+          height: "56px",
+          borderBottom: "1px solid rgba(148,163,184,0.12)",
+          backgroundColor: "#080d1a",
+          position: "sticky",
+          top: 0,
+          zIndex: 50,
+          width: "100%",
+          boxSizing: "border-box",
+        }}
+      >
+        <a
+          href="https://agentura-ci.vercel.app"
+          style={{
+            fontFamily: "'Plus Jakarta Sans', sans-serif",
+            fontWeight: 700,
+            fontSize: "16px",
+            color: "#f1f5f9",
+            textDecoration: "none",
+          }}
+        >
+          agentura
+        </a>
+        <div />
+        <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+          <a
+            href="https://github.com/SyntheticSynaptic/agentura"
+            target="_blank"
+            style={{
+              fontFamily: "Inter, sans-serif",
+              fontSize: "14px",
+              color: "#94a3b8",
+              textDecoration: "none",
+            }}
+          >
+            GitHub
           </a>
-          <div className="site-nav-links">
-            <a href={howItWorksUrl}>How It Works</a>
-            <a href={docsUrl}>Docs</a>
-          </div>
-          <div className="site-nav-actions">
-            <a href={githubUrl} target="_blank" rel="noreferrer">
-              GitHub
-            </a>
-            <a className="star-button" href={githubUrl} target="_blank" rel="noreferrer">
-              ★ Star
-            </a>
-          </div>
+          <a
+            href="https://agentura-ci.vercel.app/docs"
+            style={{
+              fontFamily: "Inter, sans-serif",
+              fontSize: "14px",
+              color: "#94a3b8",
+              textDecoration: "none",
+            }}
+          >
+            Docs
+          </a>
         </div>
       </nav>
 
@@ -45,69 +76,6 @@ export default function HomePage() {
         </div>
 
         <style jsx>{`
-          .site-nav {
-            position: sticky;
-            top: 0;
-            z-index: 50;
-            border-bottom: 1px solid var(--border);
-            background: var(--bg);
-          }
-
-          .site-nav-inner {
-            margin: 0 auto;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            max-width: 1240px;
-            height: 56px;
-            padding: 0 32px;
-            gap: 24px;
-          }
-
-          .brand {
-            color: var(--text);
-            font-family: var(--display);
-            font-size: 16px;
-            font-weight: 700;
-            text-decoration: none;
-          }
-
-          .site-nav-links {
-            display: flex;
-            align-items: center;
-            gap: 32px;
-          }
-
-          .site-nav-actions {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-          }
-
-          .site-nav-links a,
-          .site-nav-actions a {
-            color: var(--muted);
-            font-family: var(--body);
-            font-size: 14px;
-            text-decoration: none;
-            white-space: nowrap;
-          }
-
-          .site-nav-links a:hover,
-          .site-nav-actions a:hover {
-            color: var(--text);
-          }
-
-          .star-button {
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 6px 12px;
-            font-size: 13px;
-            color: var(--text) !important;
-            background: transparent;
-            cursor: pointer;
-          }
-
           .page-shell {
             min-height: 100vh;
             padding: 0 24px 72px;
@@ -142,26 +110,6 @@ export default function HomePage() {
             line-height: 1.6;
             text-align: center;
             white-space: nowrap;
-          }
-
-          @media (max-width: 720px) {
-            .site-nav-inner {
-              height: auto;
-              padding: 16px 24px;
-              flex-wrap: wrap;
-              gap: 12px;
-            }
-
-            .site-nav-links {
-              order: 3;
-              width: 100%;
-              justify-content: center;
-              gap: 16px;
-            }
-
-            .site-nav-actions {
-              margin-left: auto;
-            }
           }
 
           @media (max-width: 480px) {

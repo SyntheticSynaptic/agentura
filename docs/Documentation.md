@@ -2812,3 +2812,28 @@ Continue Milestone 19 playground polish if any additional UI feedback comes in a
 
 **Next session:**
 Continue Milestone 19 UI polish on the playground and settings surfaces, using prerendered HTML checks when browser/server verification is blocked by the sandbox.
+
+## Session — 2026-03-31 08:42 UTC
+
+**Milestone:** 19 — Dashboard Polish + Settings
+**Status:** IN PROGRESS
+
+**Files created:**
+- None
+
+**Files modified:**
+- `apps/playground/src/app/page.tsx` — removed `How It Works` and `★ Star` from the playground header and moved `Docs` into the right-side action group beside `GitHub`
+- `docs/Documentation.md` — appended this session summary
+
+**Decisions made:**
+- Left the center nav section empty rather than reflowing the brand/actions styles so the existing inline header layout stays stable while satisfying the requested link removal and `Docs` repositioning.
+
+**Validation results:**
+- `pnpm --filter @agentura/playground type-check`: PASS
+- `curl -s http://localhost:3000`: PASS (via elevated local fetch; rendered nav contains `agentura`, `GitHub`, and `Docs`, and no `How It Works` or `★ Star`)
+
+**Issues found:**
+- Browser MCP was unavailable in this thread, so rendered verification used an elevated fetch of the running local Next.js dev server instead.
+
+**Next session:**
+Continue Milestone 19 playground polish if additional header or mobile-spacing tweaks come in after this simplified nav update.
