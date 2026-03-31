@@ -195,7 +195,7 @@ Full docs: [docs/github-action.md](docs/github-action.md)
 
 ## For regulated environments
 
-Agentura includes a clinical governance layer for teams building
+Agentura includes a governance layer for teams building
 AI agents in healthcare, finance, or other regulated domains.
 
 - **Audit manifests** — every run writes dataset hashes, CLI version,
