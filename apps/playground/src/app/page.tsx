@@ -9,14 +9,12 @@ export default function HomePage() {
   return (
     <>
       <nav className="site-nav">
-        <div className="site-nav-inner">
-          <a className="brand" href={mainSiteUrl}>
-            Agentura
-          </a>
-          <a className="nav-link" href={githubUrl} target="_blank" rel="noreferrer">
-            GitHub
-          </a>
-        </div>
+        <a className="brand" href={mainSiteUrl}>
+          Agentura
+        </a>
+        <a className="nav-link" href={githubUrl} target="_blank" rel="noreferrer">
+          GitHub
+        </a>
       </nav>
 
       <main className="page-shell">
@@ -35,18 +33,13 @@ export default function HomePage() {
 
         <style jsx>{`
           .site-nav {
-            border-bottom: 1px solid var(--border);
-            background: var(--bg);
-          }
-
-          .site-nav-inner {
-            margin: 0 auto;
             display: flex;
-            max-width: 1100px;
+            width: 100%;
             align-items: center;
             justify-content: space-between;
-            gap: 16px;
             padding: 16px 32px;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg);
           }
 
           .brand {
@@ -62,6 +55,7 @@ export default function HomePage() {
             font-family: var(--body);
             font-size: 14px;
             text-decoration: none;
+            margin-left: auto;
             white-space: nowrap;
           }
 
@@ -102,7 +96,7 @@ export default function HomePage() {
           }
 
           @media (max-width: 720px) {
-            .site-nav-inner {
+            .site-nav {
               padding: 16px 24px;
             }
           }
