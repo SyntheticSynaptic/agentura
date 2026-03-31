@@ -3,15 +3,18 @@
 import { PlaygroundInput } from "../components/PlaygroundInput";
 
 export default function HomePage() {
+  const mainSiteUrl = "https://agentura-ci.vercel.app";
   const githubUrl = "https://github.com/SyntheticSynaptic/agentura";
 
   return (
     <>
       <nav className="site-nav">
         <div className="site-nav-inner">
-          <span className="brand">Agentura</span>
+          <a className="brand" href={mainSiteUrl}>
+            Agentura
+          </a>
           <a className="nav-link" href={githubUrl} target="_blank" rel="noreferrer">
-            Github
+            GitHub
           </a>
         </div>
       </nav>
@@ -49,9 +52,8 @@ export default function HomePage() {
           .brand {
             color: var(--text);
             font-family: var(--display);
-            font-size: 24px;
+            font-size: 16px;
             font-weight: 700;
-            letter-spacing: -0.03em;
             text-decoration: none;
           }
 
