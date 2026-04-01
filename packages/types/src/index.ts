@@ -232,6 +232,9 @@ export interface EvalCaseResult {
   tool_calls?: ToolCall[];
   consensus_result?: ConsensusResult;
   conversation_turn_results?: ConversationTurnResult[];
+  accumulated_confidence?: number;
+  confidence_policy?: string;
+  escalation_required?: boolean;
   latencyMs: number;
   inputTokens?: number;
   outputTokens?: number;

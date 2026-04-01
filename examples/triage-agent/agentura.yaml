@@ -12,6 +12,19 @@ evals:
     scorer: exact_match
     threshold: 1
 
+  - name: conversation_suite
+    type: golden_dataset
+    dataset: ./evals/conversation.jsonl
+    scorer: exact_match
+    threshold: 0.8
+    confidence_policy: heuristic_v1
+    confidence_policy_config:
+      hard_fail_multiplier: 0.5
+      soft_fail_multiplier: 0.85
+      low_score_multiplier: 0.9
+      low_score_threshold: 0.7
+      escalation_threshold: 0.6
+
 contracts:
   - name: clinical_action_boundary
     description: "Agent must only recommend actions within approved clinical scope"

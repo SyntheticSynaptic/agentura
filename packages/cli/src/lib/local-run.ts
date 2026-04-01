@@ -238,6 +238,18 @@ interface ContractAuditManifestEntry {
   }>;
 }
 
+interface ConfidenceAuditManifestEntry {
+  type: "confidence_result";
+  run_id: string;
+  timestamp: string;
+  eval_suite: string;
+  case_id: string;
+  confidence_policy: string;
+  accumulated_confidence: number;
+  escalation_required: boolean;
+  degraded_turns: number[];
+}
+
 interface TraceStore {
   record: (trace: AgentTrace) => void;
   claim: (caseResult: EvalCaseResult) => AgentTrace | null;
@@ -323,6 +335,16 @@ const agentSchema = z
     }
   });
 
+const confidencePolicyConfigSchema = z
+  .object({
+    hard_fail_multiplier: z.number().min(0).max(1).default(0.5),
+    soft_fail_multiplier: z.number().min(0).max(1).default(0.85),
+    low_score_multiplier: z.number().min(0).max(1).default(0.9),
+    low_score_threshold: z.number().min(0).max(1).default(0.7),
+    escalation_threshold: z.number().min(0).max(1).default(0.6),
+  })
+  .default({});
+
 const goldenSuiteSchema = z.object({
   name: z.string().min(1),
   type: z.literal("golden_dataset"),
@@ -331,6 +353,8 @@ const goldenSuiteSchema = z.object({
     .enum(["exact_match", "fuzzy_match", "contains", "semantic_similarity"])
     .default("exact_match"),
   threshold: z.number().min(0).max(1),
+  confidence_policy: z.enum(["heuristic_v1"]).optional(),
+  confidence_policy_config: confidencePolicyConfigSchema.optional(),
 });
 
 const llmJudgeSuiteSchema = z.object({
@@ -341,6 +365,8 @@ const llmJudgeSuiteSchema = z.object({
   judge_model: z.string().min(1).optional(),
   runs: z.number().int().positive().default(1),
   threshold: z.number().min(0).max(1),
+  confidence_policy: z.enum(["heuristic_v1"]).optional(),
+  confidence_policy_config: confidencePolicyConfigSchema.optional(),
 });
 
 const performanceSuiteSchema = z
@@ -558,6 +584,77 @@ type ParsedPerformanceSuite = Extract<ParsedSuite, { type: "performance" }>;
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Unknown error";
+}
+
+interface ConfidencePolicyConfig {
+  hard_fail_multiplier: number;
+  soft_fail_multiplier: number;
+  low_score_multiplier: number;
+  low_score_threshold: number;
+  escalation_threshold: number;
+}
+
+interface TurnConfidenceStep {
+  turnNumber: number;
+  classification: "hard_fail" | "soft_fail" | "low_score" | "pass";
+  multiplier: number;
+  confidenceAfter: number;
+}
+
+interface AccumulatedConfidenceResult {
+  accumulated_confidence: number;
+  escalation_required: boolean;
+  degraded_turns: number[];
+  steps: TurnConfidenceStep[];
+}
+
+function computeAccumulatedConfidence(
+  turns: import("@agentura/types").ConversationTurnResult[],
+  threshold: number,
+  config: ConfidencePolicyConfig
+): AccumulatedConfidenceResult {
+  let confidence = 1.0;
+  const degraded_turns: number[] = [];
+  const steps: TurnConfidenceStep[] = [];
+
+  for (const turn of turns) {
+    let classification: TurnConfidenceStep["classification"];
+    let multiplier: number;
+
+    if (turn.output === null || turn.errorMessage !== undefined) {
+      classification = "hard_fail";
+      multiplier = config.hard_fail_multiplier;
+    } else if (turn.score < threshold) {
+      classification = "soft_fail";
+      multiplier = config.soft_fail_multiplier;
+    } else if (turn.score < config.low_score_threshold) {
+      classification = "low_score";
+      multiplier = config.low_score_multiplier;
+    } else {
+      classification = "pass";
+      multiplier = 1.0;
+    }
+
+    confidence *= multiplier;
+
+    if (classification !== "pass") {
+      degraded_turns.push(turn.turnNumber);
+    }
+
+    steps.push({
+      turnNumber: turn.turnNumber,
+      classification,
+      multiplier,
+      confidenceAfter: confidence,
+    });
+  }
+
+  return {
+    accumulated_confidence: confidence,
+    escalation_required: confidence < config.escalation_threshold,
+    degraded_turns,
+    steps,
+  };
 }
 
 function pad(value: string, width: number): string {
@@ -1738,6 +1835,30 @@ function printContractsSection(summaries: ContractRunSummary[]): void {
   console.log("");
 }
 
+function printConfidenceSection(entries: ConfidenceAuditManifestEntry[]): void {
+  if (entries.length === 0) {
+    return;
+  }
+
+  console.log("CONFIDENCE (heuristic_v1)");
+  console.log("");
+
+  for (const entry of entries) {
+    const escFlag = entry.escalation_required ? chalk.yellow(" ⚠ escalation_required") : "";
+    const degradedNote =
+      entry.degraded_turns.length > 0
+        ? chalk.gray(` (degraded ${entry.degraded_turns.map((t) => `turn ${String(t)}`).join(", ")})`
+        )
+        : "";
+    const icon = entry.escalation_required ? "⚠️ " : "✅ ";
+    console.log(
+      `${icon} ${entry.eval_suite} / ${entry.case_id}  confidence: ${entry.accumulated_confidence.toFixed(2)}${escFlag}${degradedNote}`
+    );
+  }
+
+  console.log("");
+}
+
 function countBlockingContractFailures(summaries: ContractRunSummary[]): number {
   return summaries.filter(
     (summary) =>
@@ -1764,6 +1885,22 @@ async function writeContractAuditManifest(
       run_id: runId,
       timestamp,
     });
+  }
+}
+
+async function writeConfidenceAuditManifest(
+  cwd: string,
+  entries: ConfidenceAuditManifestEntry[]
+): Promise<void> {
+  if (entries.length === 0) {
+    return;
+  }
+
+  await ensureLocalStateDir(cwd);
+  const filePath = getLocalStatePath(cwd, AUDIT_MANIFEST_FILE_NAME);
+
+  for (const entry of entries) {
+    await appendJsonLine(filePath, entry);
   }
 }
 
@@ -2349,8 +2486,18 @@ function printVerboseCaseResults(
     const icon = caseResult.passed ? chalk.green("✓") : chalk.red("✗");
 
     if (conversationTurns.length > 0) {
+      const confidenceSuffix =
+        typeof caseResult.accumulated_confidence === "number"
+          ? `  confidence: ${caseResult.accumulated_confidence.toFixed(2)}${
+              caseResult.escalation_required ? chalk.yellow(" ⚠ escalation_required") : ""
+            }${
+              caseResult.confidence_policy !== undefined
+                ? chalk.gray(` (${caseResult.confidence_policy})`)
+                : ""
+            }`
+          : "";
       console.log(
-        `  ${icon} ${caseId} (multi-turn, ${String(conversationTurns.length)} ${pluralize(conversationTurns.length, "turn")} scored)`
+        `  ${icon} ${caseId} (multi-turn, ${String(conversationTurns.length)} ${pluralize(conversationTurns.length, "turn")} scored)${confidenceSuffix}`
       );
       conversationTurns.forEach((turn) => {
         console.log(`    turn ${String(turn.turnNumber)}: ${turn.score.toFixed(2)} ${quoteValue(turn.output)}`);
@@ -2459,6 +2606,7 @@ export async function runLocalCommand(options: LocalRunCommandOptions = {}): Pro
   const completedRows: LocalSuiteSummaryRow[] = [];
   const skippedReasons: string[] = [];
   const completedSuites: CompletedSuiteRun[] = [];
+  const confidenceAuditEntries: ConfidenceAuditManifestEntry[] = [];
   let driftResult: Awaited<ReturnType<typeof diffAgainstReference>> | null = null;
 
   console.log(chalk.gray("Running evals locally..."));
@@ -2475,6 +2623,47 @@ export async function runLocalCommand(options: LocalRunCommandOptions = {}): Pro
     if ("reason" in suiteExecution.result) {
       skippedReasons.push(suiteExecution.result.reason);
       continue;
+    }
+
+    // Apply confidence propagation if policy is set for this suite
+    if (
+      (suite.type === "golden_dataset" || suite.type === "llm_judge") &&
+      suite.confidence_policy === "heuristic_v1"
+    ) {
+      const policyConfig: ConfidencePolicyConfig = suite.confidence_policy_config ?? {
+        hard_fail_multiplier: 0.5,
+        soft_fail_multiplier: 0.85,
+        low_score_multiplier: 0.9,
+        low_score_threshold: 0.7,
+        escalation_threshold: 0.6,
+      };
+
+      for (const caseResult of suiteExecution.result.cases) {
+        const turns = caseResult.conversation_turn_results;
+        if (!turns || turns.length === 0) {
+          continue;
+        }
+
+        const testCase = suiteExecution.cases[caseResult.caseIndex];
+        const caseId = testCase ? createCaseId(testCase) : `case_${String(caseResult.caseIndex + 1)}`;
+        const confidenceResult = computeAccumulatedConfidence(turns, suite.threshold, policyConfig);
+
+        caseResult.accumulated_confidence = confidenceResult.accumulated_confidence;
+        caseResult.confidence_policy = "heuristic_v1";
+        caseResult.escalation_required = confidenceResult.escalation_required;
+
+        confidenceAuditEntries.push({
+          type: "confidence_result",
+          run_id: runId,
+          timestamp: new Date().toISOString(),
+          eval_suite: suite.name,
+          case_id: caseId,
+          confidence_policy: "heuristic_v1",
+          accumulated_confidence: confidenceResult.accumulated_confidence,
+          escalation_required: confidenceResult.escalation_required,
+          degraded_turns: confidenceResult.degraded_turns,
+        });
+      }
     }
 
     completedSuites.push({
@@ -2510,6 +2699,7 @@ export async function runLocalCommand(options: LocalRunCommandOptions = {}): Pro
       agentFn,
     });
   printContractsSection(contractSummaries);
+  printConfidenceSection(confidenceAuditEntries);
 
   const lowAgreementWarnings = collectLowAgreementWarnings(
     completedSuites.map((suiteRun) => suiteRun.result)
@@ -2614,6 +2804,7 @@ export async function runLocalCommand(options: LocalRunCommandOptions = {}): Pro
     contractAuditEntries,
     manifest.timestamp
   );
+  await writeConfidenceAuditManifest(projectRoot, confidenceAuditEntries);
   const failedCaseTraceCount = await writeFailedCaseTraces(
     projectRoot,
     runId,
