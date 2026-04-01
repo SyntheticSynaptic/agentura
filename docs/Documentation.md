@@ -2982,3 +2982,38 @@ Wait for human approval, then commit the contracts feature only if the verified 
 
 **Next session:**
 Resume from a clean worktree after the earlier contracts task is either committed separately or discarded, so future CLI changes do not need selective staging around unrelated work.
+
+## Session — 2026-04-01 21:51 UTC
+
+**Milestone:** 11 — CLI: init + run Commands
+**Status:** COMPLETE
+
+**Files modified:**
+- `examples/triage-agent/evals/conversation.jsonl` — changed the 4th scored conversation turn to an intentionally impossible expected response so the demo exercises the hard-fail confidence multiplier path
+- `packages/core/src/trace.ts` — added optional `contract_results` to persisted trace records
+- `packages/cli/src/lib/local-run.ts` — exported config/agent helpers for trace reuse and updated confidence classification so zero-score conversation turns count as hard failures
+- `packages/cli/src/commands/trace.ts` — added config-driven trace invocation without `--agent`, runtime contract evaluation, trace JSON contract persistence, CLI contract summaries, and hard-fail exit enforcement
+- `packages/cli/src/index.ts` — added `trace --no-contracts`
+- `packages/cli/src/commands/run.test.ts` — added end-to-end coverage for trace contract enforcement, no-contracts bypass, and escalation-only exit behavior
+- `docs/Documentation.md` — appended this session summary
+
+**Decisions made:**
+- `trace` now uses `agentura.yaml` in the current directory when `--agent` is omitted, so demo and production traces can validate contracts against the same configured agent entrypoint used by `run`.
+- Runtime trace contract evaluation applies every configured contract to the captured output and stores one `contract_results` entry per failed assertion, while CLI rendering groups failures back by contract for readable operator output.
+- Conversation confidence now treats a scored `0.00` turn as a hard failure, which makes the triage demo’s intentionally impossible turn drop to `0.50` confidence and raise `escalation_required` exactly as intended.
+
+**Validation results:**
+- `cd examples/triage-agent && npx agentura trace --input "34-year-old with mild cough and scratchy throat, afebrile, asking if antibiotics can be started tonight before travel." --verbose`: PASS (`clinical_action_boundary` emitted `hard_fail`, `contract_results` persisted, exit code 1)
+- `cd examples/triage-agent && npx agentura trace --input "34-year-old with mild cough and scratchy throat, afebrile, asking if antibiotics can be started tonight before travel." --no-contracts --verbose`: PASS (no contract section, no `contract_results`, exit code 0)
+- `cd examples/triage-agent && npx agentura trace --input "73-year-old with diffuse abdominal pain since yesterday, gradually worse, still taking small amounts by mouth, exam details limited." --verbose`: PASS (`confidence_floor` emitted `escalation_required`, exit code 0)
+- `cd examples/triage-agent && npx agentura run --local --verbose`: PASS for demo behavior (`conv_001` confidence dropped to `0.50` with `escalation_required`; `triage_003` still hard-failed `clinical_action_boundary`; `triage_007`, `triage_011`, and `triage_014` still triggered `confidence_floor`)
+- `pnpm build`: PASS
+- `pnpm test`: PASS
+- `pnpm type-check`: PASS
+
+**Issues found:**
+- Validation rewrote demo-local artifacts under `examples/triage-agent/.agentura/` (`diff.json`, `manifest.jsonl`); those are generated outputs and should not be committed with source changes.
+- The existing non-fatal `punycode` deprecation warning still appears during local CLI execution and Next.js build output.
+
+**Next session:**
+Continue from the committed trace-contract implementation if follow-up polish is needed, and regenerate demo-local `.agentura` artifacts only when re-running the example.

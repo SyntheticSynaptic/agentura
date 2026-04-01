@@ -3,12 +3,23 @@ import { createHash, randomUUID } from "node:crypto";
 import type {
   AgentCallResult,
   ConsensusResult,
+  ContractAssertionConfig,
+  ContractFailureMode,
   JsonObject,
   JsonValue,
   ToolCall,
 } from "@agentura/types";
 
 import type { TraceFlag } from "./trace-flags";
+
+export interface TraceContractResult {
+  contract: string;
+  passed: boolean;
+  failure_mode: Exclude<ContractFailureMode, "retry">;
+  assertion: ContractAssertionConfig["type"];
+  observed: JsonValue | null;
+  message: string;
+}
 
 export interface AgentTrace {
   trace_id: string;
@@ -26,6 +37,7 @@ export interface AgentTrace {
   duration_ms: number;
   flags: TraceFlag[];
   consensus_result?: ConsensusResult | null;
+  contract_results?: TraceContractResult[];
 }
 
 export interface ToolCallRecord {
@@ -69,6 +81,7 @@ export interface BuildAgentTraceOptions {
   flags?: TraceFlag[];
   redactToolOutputs?: boolean;
   consensusResult?: ConsensusResult | null;
+  contractResults?: TraceContractResult[];
 }
 
 export const REDACTED_VALUE = "[REDACTED]";
@@ -212,6 +225,7 @@ export function buildAgentTrace(options: BuildAgentTraceOptions): AgentTrace {
     ),
     flags: [...(options.flags ?? [])],
     consensus_result: options.consensusResult ?? null,
+    contract_results: options.contractResults,
   };
 }
 

@@ -577,7 +577,7 @@ const baselineSnapshotSchema = z.object({
   suites: z.record(baselineSuiteSnapshotSchema),
 });
 
-type ParsedConfig = z.infer<typeof configSchema>;
+export type ParsedConfig = z.infer<typeof configSchema>;
 type ParsedSuite = ParsedConfig["evals"][number];
 type ParsedContract = ParsedConfig["contracts"][number];
 type ParsedPerformanceSuite = Extract<ParsedSuite, { type: "performance" }>;
@@ -621,7 +621,7 @@ function computeAccumulatedConfidence(
     let classification: TurnConfidenceStep["classification"];
     let multiplier: number;
 
-    if (turn.output === null || turn.errorMessage !== undefined) {
+    if (turn.output === null || turn.errorMessage !== undefined || turn.score <= 0) {
       classification = "hard_fail";
       multiplier = config.hard_fail_multiplier;
     } else if (turn.score < threshold) {
@@ -1209,7 +1209,7 @@ function printDatasetChangeWarnings(changes: DatasetChange[]): void {
   console.log("");
 }
 
-function inferAgentId(agentConfig: ParsedConfig["agent"]): string {
+export function inferAgentId(agentConfig: ParsedConfig["agent"]): string {
   if (agentConfig.type === "http") {
     try {
       const url = new URL(agentConfig.endpoint as string);
@@ -1964,7 +1964,7 @@ function resolveConfigPath(cwd: string, configuredPath?: string): string {
   return path.resolve(cwd, configuredPath ?? "agentura.yaml");
 }
 
-async function loadAgenturaConfig(configPath: string): Promise<ParsedConfig> {
+export async function loadAgenturaConfig(configPath: string): Promise<ParsedConfig> {
   const configLabel = path.basename(configPath);
 
   let raw: string;
@@ -1995,7 +1995,7 @@ async function loadAgenturaConfig(configPath: string): Promise<ParsedConfig> {
   return parsed.data;
 }
 
-function createLocalAgentFunction(
+export function createLocalAgentFunction(
   agentConfig: ParsedConfig["agent"],
   cwd: string,
   traceCapture?: LocalTraceCaptureOptions

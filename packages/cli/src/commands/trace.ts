@@ -7,7 +7,7 @@ import { stdin as input, stdout as output } from "node:process";
 import { pathToFileURL } from "node:url";
 
 import chalk from "chalk";
-import { scoreSemanticSimilarity } from "@agentura/eval-runner";
+import { evaluateContractCase, scoreSemanticSimilarity } from "@agentura/eval-runner";
 import {
   appendToManifest,
   buildAgentTrace,
@@ -16,9 +16,27 @@ import {
   traceHasFlags,
   writeTrace,
   type AgentTrace,
+  type TraceContractResult,
   type ToolCallRecord,
 } from "@agentura/core";
-import type { AgentCallOptions, AgentCallResult, AgentFunction } from "@agentura/types";
+import type {
+  AgentCallOptions,
+  AgentCallResult,
+  AgentFunction,
+  ContractAssertionConfig,
+  JsonValue,
+} from "@agentura/types";
+import type {
+  ContractAssertionEvaluation,
+  EffectiveContractFailureMode,
+} from "@agentura/eval-runner";
+
+import {
+  createLocalAgentFunction,
+  inferAgentId,
+  loadAgenturaConfig,
+  type ParsedConfig,
+} from "../lib/local-run";
 
 interface TraceCommandOptions {
   agent?: string;
@@ -27,6 +45,7 @@ interface TraceCommandOptions {
   out?: string;
   verbose?: boolean;
   redact?: boolean;
+  contracts?: boolean;
 }
 
 interface ModuleMetadata {
@@ -40,6 +59,19 @@ interface ModuleMetadata {
 
 interface TraceManifestShape {
   run_id?: string;
+}
+
+interface ResolvedTraceInvocation {
+  agentFn: AgentFunction;
+  agentId: string;
+  moduleMetadata?: ModuleMetadata;
+  config: ParsedConfig | null;
+}
+
+interface TraceContractCheck {
+  contractName: string;
+  failureMode: EffectiveContractFailureMode;
+  failedAssertions: ContractAssertionEvaluation[];
 }
 
 type PromptFunction = (question: string) => Promise<string>;
@@ -151,10 +183,11 @@ function diffToolCalls(left: ToolCallRecord[], right: ToolCallRecord[]) {
 
 async function promptForMissingTraceValues(
   options: TraceCommandOptions,
-  ask: PromptFunction
-): Promise<{ agentPath: string; inputText: string }> {
+  ask: PromptFunction,
+  needsAgentPath: boolean
+): Promise<{ agentPath?: string; inputText: string }> {
   let agentPath = options.agent?.trim() || "";
-  if (!agentPath) {
+  if (!agentPath && needsAgentPath) {
     agentPath = (await ask("Path to agent module: ")).trim();
   }
 
@@ -163,49 +196,222 @@ async function promptForMissingTraceValues(
     inputText = (await ask("Input to send to agent: ")).trim();
   }
 
-  return { agentPath, inputText };
+  return {
+    ...(agentPath ? { agentPath } : {}),
+    inputText,
+  };
 }
 
-export async function traceCommand(options: TraceCommandOptions): Promise<void> {
-  const cwd = process.cwd();
+async function loadConfigIfPresent(cwd: string): Promise<ParsedConfig | null> {
+  const configPath = path.join(cwd, "agentura.yaml");
+
+  try {
+    await fs.access(configPath);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return null;
+    }
+
+    throw error;
+  }
+
+  return loadAgenturaConfig(configPath);
+}
+
+async function resolveTraceInvocation(
+  cwd: string,
+  options: TraceCommandOptions
+): Promise<{ inputText: string; invocation: ResolvedTraceInvocation }> {
+  const config = await loadConfigIfPresent(cwd);
   const rl = createInterface({ input, output });
-  let agentPath = "";
+  let agentPath: string | undefined;
   let inputText = "";
 
   try {
     ({ agentPath, inputText } = await promptForMissingTraceValues(
       options,
-      (question) => rl.question(question)
+      (question) => rl.question(question),
+      !config && !(options.agent?.trim())
     ));
   } finally {
     rl.close();
-  }
-
-  if (!agentPath) {
-    throw new Error("trace requires --agent <path>");
   }
 
   if (!inputText) {
     throw new Error("trace requires --input <text>");
   }
 
+  if (agentPath) {
+    const moduleMetadata = await loadTraceModule(agentPath, cwd);
+    return {
+      inputText,
+      invocation: {
+        agentFn: moduleMetadata.agentFn,
+        agentId: moduleMetadata.agentId,
+        moduleMetadata,
+        config,
+      },
+    };
+  }
+
+  if (!config) {
+    throw new Error("trace requires --agent <path> or agentura.yaml in the current directory");
+  }
+
+  return {
+    inputText,
+    invocation: {
+      agentFn: createLocalAgentFunction(config.agent, cwd),
+      agentId: inferAgentId(config.agent),
+      config,
+    },
+  };
+}
+
+function formatTraceContractObservedValue(value: JsonValue | null): string {
+  if (value === null) {
+    return "(missing)";
+  }
+
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value.toFixed(2);
+  }
+
+  return JSON.stringify(value);
+}
+
+function formatTraceContractAssertion(assertion: ContractAssertionEvaluation): string {
+  switch (assertion.type) {
+    case "allowed_values":
+      return `${assertion.type}: ${assertion.field ?? "field"} = ${formatTraceContractObservedValue(assertion.observed)}`;
+    case "forbidden_tools": {
+      const observedTools =
+        Array.isArray(assertion.observed) && assertion.observed.length > 0
+          ? assertion.observed.join(", ")
+          : "(none)";
+      return `${assertion.type}: ${observedTools}`;
+    }
+    case "required_fields": {
+      const missingFields =
+        Array.isArray(assertion.observed) && assertion.observed.length > 0
+          ? assertion.observed.join(", ")
+          : assertion.expected;
+      return `${assertion.type}: missing ${missingFields}`;
+    }
+    case "min_confidence":
+      return `${assertion.type}: ${formatTraceContractObservedValue(assertion.observed)} (threshold: ${assertion.expected})`;
+  }
+}
+
+function effectiveTraceFailureMode(
+  failureMode: ParsedConfig["contracts"][number]["failure_mode"]
+): EffectiveContractFailureMode {
+  return failureMode === "retry" ? "hard_fail" : failureMode;
+}
+
+function evaluateTraceContracts(
+  contracts: ParsedConfig["contracts"],
+  outputText: string | null,
+  toolCalls: AgentCallResult["tool_calls"]
+): {
+  checks: TraceContractCheck[];
+  contractResults: TraceContractResult[];
+} {
+  const checks: TraceContractCheck[] = [];
+  const contractResults: TraceContractResult[] = [];
+
+  for (const contract of contracts) {
+    const evaluation = evaluateContractCase(contract, {
+      output: outputText,
+      toolCalls,
+    });
+    if (evaluation.passed) {
+      continue;
+    }
+
+    const failureMode = effectiveTraceFailureMode(contract.failure_mode);
+    const failedAssertions = evaluation.assertions.filter((assertion) => !assertion.passed);
+
+    checks.push({
+      contractName: contract.name,
+      failureMode,
+      failedAssertions,
+    });
+
+    for (const assertion of failedAssertions) {
+      contractResults.push({
+        contract: contract.name,
+        passed: false,
+        failure_mode: failureMode,
+        assertion: assertion.type as ContractAssertionConfig["type"],
+        observed: assertion.observed,
+        message: assertion.message,
+      });
+    }
+  }
+
+  return { checks, contractResults };
+}
+
+function printTraceContractsSection(checks: TraceContractCheck[]): void {
+  console.log("CONTRACT CHECK");
+
+  if (checks.length === 0) {
+    console.log("✅ All configured contracts passed.");
+    console.log("");
+    return;
+  }
+
+  for (const check of checks) {
+    const icon = check.failureMode === "hard_fail" ? "❌" : "⚠️";
+    console.log(`${icon} ${check.contractName} [${check.failureMode}]`);
+
+    for (const assertion of check.failedAssertions) {
+      console.log(`   ${formatTraceContractAssertion(assertion)}`);
+    }
+
+    switch (check.failureMode) {
+      case "hard_fail":
+        console.log("   → This output would have blocked a PR merge");
+        break;
+      case "escalation_required":
+        console.log("   → Human review required before acting on output");
+        break;
+      case "soft_fail":
+        console.log("   → Review recommended before relying on this output");
+        break;
+    }
+  }
+
+  console.log("");
+}
+
+function countBlockingTraceContracts(checks: TraceContractCheck[]): number {
+  return checks.filter((check) => check.failureMode === "hard_fail").length;
+}
+
+export async function traceCommand(options: TraceCommandOptions): Promise<void> {
+  const cwd = process.cwd();
+  const { inputText, invocation } = await resolveTraceInvocation(cwd, options);
+
   const traceOutDir = options.out ?? ".agentura/traces";
   const runId = await readExistingRunId(cwd);
-  const moduleMetadata = await loadTraceModule(agentPath, cwd);
+  const moduleMetadata = invocation.moduleMetadata;
   const startedAt = new Date().toISOString();
   const invocationStartedAt = performance.now();
 
   if (options.verbose) {
-    console.log(chalk.gray(`Tracing ${moduleMetadata.agentId}...`));
+    console.log(chalk.gray(`Tracing ${invocation.agentId}...`));
   }
 
   let trace: AgentTrace;
+  let contractChecks: TraceContractCheck[] = [];
 
   try {
     const agentOptions: AgentCallOptions = {
       ...(options.model ? { model: options.model } : {}),
     };
-    const result = (await moduleMetadata.agentFn(
+    const result = (await invocation.agentFn(
       inputText,
       agentOptions
     )) as AgentCallResult;
@@ -213,33 +419,43 @@ export async function traceCommand(options: TraceCommandOptions): Promise<void> 
 
     trace = buildAgentTrace({
       runId,
-      agentId: moduleMetadata.agentId,
+      agentId: invocation.agentId,
       input: inputText,
       output: result.output,
       agentResult: result,
-      model: options.model ?? result.model ?? moduleMetadata.model,
-      modelVersion: result.modelVersion ?? moduleMetadata.modelVersion,
+      model: options.model ?? result.model ?? moduleMetadata?.model,
+      modelVersion: result.modelVersion ?? moduleMetadata?.modelVersion,
       promptHash:
         result.promptHash ??
-        moduleMetadata.promptHash ??
-        buildPromptHash(moduleMetadata.systemPrompt),
+        moduleMetadata?.promptHash ??
+        buildPromptHash(moduleMetadata?.systemPrompt),
       startedAt: result.startedAt ?? startedAt,
       completedAt: result.completedAt ?? completedAt,
       durationMs:
         result.latencyMs ?? Math.max(0, Math.round(performance.now() - invocationStartedAt)),
       redactToolOutputs: options.redact === true,
     });
+
+    if (options.contracts !== false && invocation.config && invocation.config.contracts.length > 0) {
+      const evaluatedContracts = evaluateTraceContracts(
+        invocation.config.contracts,
+        result.output,
+        result.tool_calls
+      );
+      contractChecks = evaluatedContracts.checks;
+      trace.contract_results = evaluatedContracts.contractResults;
+    }
   } catch (error) {
     const completedAt = new Date().toISOString();
     trace = buildAgentTrace({
       runId,
-      agentId: moduleMetadata.agentId,
+      agentId: invocation.agentId,
       input: inputText,
       output: "",
-      model: options.model ?? moduleMetadata.model,
-      modelVersion: moduleMetadata.modelVersion,
+      model: options.model ?? moduleMetadata?.model,
+      modelVersion: moduleMetadata?.modelVersion,
       promptHash:
-        moduleMetadata.promptHash ?? buildPromptHash(moduleMetadata.systemPrompt),
+        moduleMetadata?.promptHash ?? buildPromptHash(moduleMetadata?.systemPrompt),
       startedAt,
       completedAt,
       durationMs: Math.max(0, Math.round(performance.now() - invocationStartedAt)),
@@ -272,7 +488,11 @@ export async function traceCommand(options: TraceCommandOptions): Promise<void> 
     console.log(JSON.stringify(trace, null, 2));
   }
 
-  if (traceHasFlags(trace)) {
+  if (options.contracts !== false && invocation.config && invocation.config.contracts.length > 0) {
+    printTraceContractsSection(contractChecks);
+  }
+
+  if (traceHasFlags(trace) || countBlockingTraceContracts(contractChecks) > 0) {
     process.exit(1);
   }
 }

@@ -132,6 +132,7 @@ traceProgram
   .option("--out <dir>", "Output directory for trace files", ".agentura/traces")
   .option("--verbose", "Print the completed trace JSON to stdout")
   .option("--redact", "Redact PII-like keys in traced tool outputs")
+  .option("--no-contracts", "Skip runtime contract validation against traced output")
   .action(traceCommand);
 
 traceProgram

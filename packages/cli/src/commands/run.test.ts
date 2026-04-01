@@ -1334,6 +1334,306 @@ export default async function agent(input, options = {}) {
   assert.equal(trace.tool_calls[0]?.tool_output.note, "Stable vitals");
 });
 
+test("trace command loads contracts from agentura.yaml, records contract_results, and exits 1 on hard_fail", async () => {
+  const directory = await createFixtureDir("agentura-cli-trace-contracts-");
+
+  await mkdir(path.join(directory, "evals"), { recursive: true });
+  await writeFile(
+    path.join(directory, "agent.js"),
+    `
+const chunks = [];
+
+process.stdin.on("data", (chunk) => {
+  chunks.push(chunk.toString());
+});
+
+process.stdin.on("end", () => {
+  process.stdout.write(JSON.stringify({
+    action: "prescribe",
+    rationale: "Antibiotics are recommended immediately.",
+    confidence: 0.61
+  }));
+});
+`.trimStart(),
+    "utf-8"
+  );
+  await writeFile(
+    path.join(directory, "evals", "cases.jsonl"),
+    `{"id":"case_1","input":"45-year-old male with productive cough","expected":"{\\"action\\":\\"observe\\"}"}\n`,
+    "utf-8"
+  );
+  await writeFile(
+    path.join(directory, "agentura.yaml"),
+    `
+version: 1
+
+agent:
+  type: cli
+  command: node ./agent.js
+  timeout_ms: 30000
+
+evals:
+  - name: triage_suite
+    type: golden_dataset
+    dataset: ./evals/cases.jsonl
+    scorer: exact_match
+    threshold: 1
+
+contracts:
+  - name: action_boundary
+    description: "Action must remain within approved scope"
+    applies_to: [triage_suite]
+    failure_mode: hard_fail
+    assertions:
+      - type: allowed_values
+        field: output.action
+        values: [observe, refer, escalate, order_test]
+        message: "Action outside approved scope"
+
+  - name: confidence_floor
+    description: "Low-confidence output requires review"
+    applies_to: [triage_suite]
+    failure_mode: escalation_required
+    assertions:
+      - type: min_confidence
+        field: output.confidence
+        threshold: 0.75
+        message: "Human review required before acting on output"
+
+ci:
+  block_on_regression: true
+  regression_threshold: 0.05
+  compare_to: main
+  post_comment: true
+  fail_on_new_suite: false
+`.trimStart(),
+    "utf-8"
+  );
+
+  const result = await runCli(directory, [
+    "trace",
+    "--input",
+    "45-year-old male with productive cough",
+    "--verbose",
+  ]);
+  const output = stripAnsi(result.output);
+
+  assert.equal(result.code, 1);
+  assert.match(output, /Trace written to \.agentura\/traces\//);
+  assert.match(output, /CONTRACT CHECK/);
+  assert.match(output, /❌ action_boundary \[hard_fail\]/);
+  assert.match(output, /allowed_values: output\.action = "prescribe"/);
+  assert.match(output, /→ This output would have blocked a PR merge/);
+  assert.match(output, /⚠️\s+confidence_floor \[escalation_required\]/);
+  assert.match(output, /min_confidence: 0\.61 \(threshold: 0\.75\)/);
+  assert.match(output, /→ Human review required before acting on output/);
+
+  const manifest = await readJson<{
+    traces: Array<{ path: string }>;
+  }>(path.join(directory, ".agentura", "manifest.json"));
+  const trace = await readJson<{
+    output: string;
+    contract_results: Array<{
+      contract: string;
+      passed: boolean;
+      failure_mode: string;
+      assertion: string;
+      observed: string | number | null;
+      message: string;
+    }>;
+  }>(path.join(directory, manifest.traces[0]?.path ?? ""));
+
+  assert.equal(
+    trace.output,
+    "{\"action\":\"prescribe\",\"rationale\":\"Antibiotics are recommended immediately.\",\"confidence\":0.61}"
+  );
+  assert.deepEqual(trace.contract_results, [
+    {
+      contract: "action_boundary",
+      passed: false,
+      failure_mode: "hard_fail",
+      assertion: "allowed_values",
+      observed: "prescribe",
+      message: "Action outside approved scope",
+    },
+    {
+      contract: "confidence_floor",
+      passed: false,
+      failure_mode: "escalation_required",
+      assertion: "min_confidence",
+      observed: 0.61,
+      message: "Human review required before acting on output",
+    },
+  ]);
+});
+
+test("trace command skips contract checks when --no-contracts is set", async () => {
+  const directory = await createFixtureDir("agentura-cli-trace-no-contracts-");
+
+  await mkdir(path.join(directory, "evals"), { recursive: true });
+  await writeFile(
+    path.join(directory, "agent.js"),
+    `
+const chunks = [];
+
+process.stdin.on("data", (chunk) => {
+  chunks.push(chunk.toString());
+});
+
+process.stdin.on("end", () => {
+  process.stdout.write(JSON.stringify({
+    action: "prescribe",
+    rationale: "Antibiotics are recommended immediately.",
+    confidence: 0.61
+  }));
+});
+`.trimStart(),
+    "utf-8"
+  );
+  await writeFile(
+    path.join(directory, "evals", "cases.jsonl"),
+    `{"id":"case_1","input":"45-year-old male with productive cough","expected":"{\\"action\\":\\"observe\\"}"}\n`,
+    "utf-8"
+  );
+  await writeFile(
+    path.join(directory, "agentura.yaml"),
+    `
+version: 1
+
+agent:
+  type: cli
+  command: node ./agent.js
+  timeout_ms: 30000
+
+evals:
+  - name: triage_suite
+    type: golden_dataset
+    dataset: ./evals/cases.jsonl
+    scorer: exact_match
+    threshold: 1
+
+contracts:
+  - name: action_boundary
+    description: "Action must remain within approved scope"
+    applies_to: [triage_suite]
+    failure_mode: hard_fail
+    assertions:
+      - type: allowed_values
+        field: output.action
+        values: [observe, refer, escalate, order_test]
+        message: "Action outside approved scope"
+
+ci:
+  block_on_regression: true
+  regression_threshold: 0.05
+  compare_to: main
+  post_comment: true
+  fail_on_new_suite: false
+`.trimStart(),
+    "utf-8"
+  );
+
+  const result = await runCli(directory, [
+    "trace",
+    "--input",
+    "45-year-old male with productive cough",
+    "--no-contracts",
+    "--verbose",
+  ]);
+  const output = stripAnsi(result.output);
+
+  assert.equal(result.code, 0);
+  assert.doesNotMatch(output, /CONTRACT CHECK/);
+
+  const manifest = await readJson<{
+    traces: Array<{ path: string }>;
+  }>(path.join(directory, ".agentura", "manifest.json"));
+  const trace = await readJson<{
+    contract_results?: unknown;
+  }>(path.join(directory, manifest.traces[0]?.path ?? ""));
+
+  assert.equal("contract_results" in trace, false);
+});
+
+test("trace command exits 0 when only escalation_required contracts fail", async () => {
+  const directory = await createFixtureDir("agentura-cli-trace-escalation-");
+
+  await mkdir(path.join(directory, "evals"), { recursive: true });
+  await writeFile(
+    path.join(directory, "agent.js"),
+    `
+const chunks = [];
+
+process.stdin.on("data", (chunk) => {
+  chunks.push(chunk.toString());
+});
+
+process.stdin.on("end", () => {
+  process.stdout.write(JSON.stringify({
+    action: "refer",
+    rationale: "Schedule clinician review.",
+    confidence: 0.61
+  }));
+});
+`.trimStart(),
+    "utf-8"
+  );
+  await writeFile(
+    path.join(directory, "evals", "cases.jsonl"),
+    `{"id":"case_1","input":"45-year-old male with productive cough","expected":"{\\"action\\":\\"refer\\"}"}\n`,
+    "utf-8"
+  );
+  await writeFile(
+    path.join(directory, "agentura.yaml"),
+    `
+version: 1
+
+agent:
+  type: cli
+  command: node ./agent.js
+  timeout_ms: 30000
+
+evals:
+  - name: triage_suite
+    type: golden_dataset
+    dataset: ./evals/cases.jsonl
+    scorer: exact_match
+    threshold: 1
+
+contracts:
+  - name: confidence_floor
+    description: "Low-confidence output requires review"
+    applies_to: [triage_suite]
+    failure_mode: escalation_required
+    assertions:
+      - type: min_confidence
+        field: output.confidence
+        threshold: 0.75
+        message: "Human review required before acting on output"
+
+ci:
+  block_on_regression: true
+  regression_threshold: 0.05
+  compare_to: main
+  post_comment: true
+  fail_on_new_suite: false
+`.trimStart(),
+    "utf-8"
+  );
+
+  const result = await runCli(directory, [
+    "trace",
+    "--input",
+    "45-year-old male with productive cough",
+  ]);
+  const output = stripAnsi(result.output);
+
+  assert.equal(result.code, 0);
+  assert.match(output, /CONTRACT CHECK/);
+  assert.match(output, /confidence_floor \[escalation_required\]/);
+  assert.match(output, /Human review required before acting on output/);
+});
+
 test("trace diff reports semantic similarity, tool diffs, token deltas, and duration deltas", async () => {
   const directory = await createFixtureDir("agentura-cli-trace-diff-");
   const traceDir = path.join(directory, ".agentura", "traces", "2026-03-27");
