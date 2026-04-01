@@ -5,7 +5,7 @@
   "homepage": "https://agentura-ci.vercel.app",
   "repository": {
     "type": "git",
-    "url": "https://github.com/SyntheticSynaptic/agentura"
+    "url": "git+https://github.com/SyntheticSynaptic/agentura.git"
   },
   "bugs": {
     "url": "https://github.com/SyntheticSynaptic/agentura/issues"
