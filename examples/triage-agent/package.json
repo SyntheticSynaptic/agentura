@@ -1,5 +1,6 @@
 {
   "name": "triage-agent-example",
+  "type": "module",
   "private": true,
   "scripts": {
     "agent": "node agent.js"

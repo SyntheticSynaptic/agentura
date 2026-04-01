@@ -1526,12 +1526,15 @@ test("reference snapshot stores frozen outputs and requires --force to overwrite
     "utf-8"
   );
   await writeFile(path.join(directory, "evals", "accuracy.jsonl"), dataset, "utf-8");
+  await writeFile(
+    path.join(directory, "agentura.yaml"),
+    `version: 1\nagent:\n  type: sdk\n  module: ./agent.mjs\n  timeout_ms: 30000\nevals:\n  - name: accuracy\n    type: golden_dataset\n    dataset: ./evals/accuracy.jsonl\n    scorer: exact_match\n    threshold: 1\n`,
+    "utf-8"
+  );
 
   const firstRun = await runCli(directory, [
     "reference",
     "snapshot",
-    "--agent",
-    "./agent.mjs",
     "--dataset",
     "./evals/accuracy.jsonl",
     "--label",
@@ -1567,13 +1570,9 @@ test("reference snapshot stores frozen outputs and requires --force to overwrite
   assert.equal(metadata.case_count, 3);
   assert.equal(metadata.model, "test-model");
   assert.equal(metadata.prompt_hash, "p".repeat(64));
-  assert.equal(metadata.agent_module, "./agent.mjs");
+  assert.equal(metadata.agent_module, null);
   assert.deepEqual(
-    outputs.map((entry) => ({
-      id: entry.id,
-      output: entry.output,
-      latency_ms: entry.latency_ms,
-    })),
+    outputs.map((entry) => ({ id: entry.id, output: entry.output, latency_ms: entry.latency_ms })),
     [
       { id: "case_4", output: "Refer ACHD specialist now", latency_ms: 35 },
       { id: "case_7", output: "Schedule routine follow-up", latency_ms: 30 },
@@ -1584,8 +1583,6 @@ test("reference snapshot stores frozen outputs and requires --force to overwrite
   const secondRun = await runCli(directory, [
     "reference",
     "snapshot",
-    "--agent",
-    "./agent.mjs",
     "--dataset",
     "./evals/accuracy.jsonl",
     "--label",
@@ -1631,12 +1628,15 @@ test("reference diff compares against frozen reference inputs, writes manifest d
     "utf-8"
   );
   await writeFile(path.join(directory, "evals", "accuracy.jsonl"), snapshotDataset, "utf-8");
+  await writeFile(
+    path.join(directory, "agentura.yaml"),
+    `version: 1\nagent:\n  type: sdk\n  module: ./agent.mjs\n  timeout_ms: 30000\n`,
+    "utf-8"
+  );
 
   const snapshotRun = await runCli(directory, [
     "reference",
     "snapshot",
-    "--agent",
-    "./agent.mjs",
     "--dataset",
     "./evals/accuracy.jsonl",
     "--label",
@@ -1766,35 +1766,6 @@ test("run --local --drift-check fails when frozen-reference thresholds are breac
     "utf-8"
   );
   await writeFile(path.join(directory, "evals", "accuracy.jsonl"), dataset, "utf-8");
-
-  const snapshotRun = await runCli(directory, [
-    "reference",
-    "snapshot",
-    "--agent",
-    "./agent.mjs",
-    "--dataset",
-    "./evals/accuracy.jsonl",
-    "--label",
-    "v1.0-pre-prompt-change",
-  ]);
-  assert.equal(snapshotRun.code, 0);
-
-  await writeFile(
-    path.join(directory, "agent.mjs"),
-    buildReferenceAgentModule({
-      "Patient A next step": {
-        output: "Order a repeat echocardiogram in 6 months",
-        latencyMs: 275,
-        toolCalls: [{ name: "generate_recommendation", args: { cadence: "6_months" } }],
-      },
-      "Patient B next step": {
-        output: "Schedule routine follow-up",
-        latencyMs: 290,
-        toolCalls: [{ name: "generate_recommendation", args: { cadence: "routine" } }],
-      },
-    }),
-    "utf-8"
-  );
   await writeFile(
     path.join(directory, "agentura.yaml"),
     `
@@ -1825,6 +1796,33 @@ drift:
     tool_call_drift: 0.95
     latency_drift_ms: 100
 `.trimStart(),
+    "utf-8"
+  );
+
+  const snapshotRun = await runCli(directory, [
+    "reference",
+    "snapshot",
+    "--dataset",
+    "./evals/accuracy.jsonl",
+    "--label",
+    "v1.0-pre-prompt-change",
+  ]);
+  assert.equal(snapshotRun.code, 0);
+
+  await writeFile(
+    path.join(directory, "agent.mjs"),
+    buildReferenceAgentModule({
+      "Patient A next step": {
+        output: "Order a repeat echocardiogram in 6 months",
+        latencyMs: 275,
+        toolCalls: [{ name: "generate_recommendation", args: { cadence: "6_months" } }],
+      },
+      "Patient B next step": {
+        output: "Schedule routine follow-up",
+        latencyMs: 290,
+        toolCalls: [{ name: "generate_recommendation", args: { cadence: "routine" } }],
+      },
+    }),
     "utf-8"
   );
 

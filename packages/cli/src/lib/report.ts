@@ -9,7 +9,7 @@ import {
   type AgentTrace,
   type TraceFlag,
 } from "@agentura/core";
-import type { ConsensusResult, DriftThresholdConfig } from "@agentura/types";
+import type { AgentFunction, ConsensusResult, DriftThresholdConfig } from "@agentura/types";
 
 import {
   DEFAULT_DRIFT_THRESHOLDS,
@@ -89,6 +89,7 @@ interface RenderClinicalAuditReportOptions {
   since: string;
   reference: string;
   outPath: string;
+  agentFn?: AgentFunction;
 }
 
 interface ClinicalAuditReportResult {
@@ -165,7 +166,11 @@ function summarizeModels(record: EvalRunAuditRecord | null): string {
   }
 
   const names = uniqueStrings(record.model_names);
-  return names.length > 0 ? names.join(", ") : "unknown";
+  if (names.length > 0) {
+    return names.join(", ");
+  }
+
+  return record.agent.type === "cli" ? "local agent" : "unknown";
 }
 
 function formatDate(value: string): string {
@@ -305,11 +310,11 @@ export async function writeEvalRunAuditRecord(
 }
 
 export async function readEvalRunAuditRecordsSince(
-  cwd: string,
+  agenturaDir: string,
   since: string
 ): Promise<EvalRunAuditRecord[]> {
   const after = readDate(since);
-  const files = await walkJsonFiles(path.join(cwd, EVAL_RUN_ROOT));
+  const files = await walkJsonFiles(path.join(agenturaDir, "eval-runs"));
   const records = await Promise.all(
     files.map(async (filePath) => {
       const record = await readJsonFile<EvalRunAuditRecord>(filePath);
@@ -345,9 +350,9 @@ function toAuditTraceFromAgentTrace(trace: AgentTrace): AuditTraceRecord {
   };
 }
 
-async function readTraceFilesSince(cwd: string, since: string): Promise<AuditTraceRecord[]> {
+async function readTraceFilesSince(agenturaDir: string, since: string): Promise<AuditTraceRecord[]> {
   const after = readDate(since);
-  const files = await walkJsonFiles(path.join(cwd, DEFAULT_TRACE_ROOT));
+  const files = await walkJsonFiles(path.join(agenturaDir, "traces"));
   const traces = await Promise.all(
     files.map(async (filePath) => {
       const trace = await readJsonFile<AgentTrace>(filePath);
@@ -786,7 +791,7 @@ function renderClinicalAuditHtml(options: {
             label: "Consensus agreement",
             value:
               options.summary.consensusAgreementRate === null
-                ? "n/a"
+                ? "No consensus calls recorded"
                 : formatPercent(options.summary.consensusAgreementRate),
           },
         ])}
@@ -893,9 +898,13 @@ export async function generateClinicalAuditReport(
 ): Promise<ClinicalAuditReportResult> {
   readDate(options.since);
 
+  // Evidence is always read from .agentura in the directory where the command is run,
+  // consistent with how agentura run writes evidence.
+  const agenturaDir = path.join(process.cwd(), ".agentura");
+
   const [auditRecords, traceFiles, driftThresholds, driftHistory] = await Promise.all([
-    readEvalRunAuditRecordsSince(options.cwd, options.since),
-    readTraceFilesSince(options.cwd, options.since),
+    readEvalRunAuditRecordsSince(agenturaDir, options.since),
+    readTraceFilesSince(agenturaDir, options.since),
     loadConfiguredThresholds(options.cwd),
     readDriftHistory(options.cwd),
   ]);
@@ -904,6 +913,7 @@ export async function generateClinicalAuditReport(
     cwd: options.cwd,
     label: options.reference,
     thresholds: driftThresholds,
+    agentFn: options.agentFn,
   });
   const relevantDriftHistory = driftHistory
     .filter(
