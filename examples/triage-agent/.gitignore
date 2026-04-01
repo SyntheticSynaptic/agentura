@@ -1,0 +1,6 @@
+# Agentura local evidence (eval runs, traces, baselines)
+# Reference snapshots are excluded so drift detection works in CI
+.agentura/eval-runs/
+.agentura/traces/
+.agentura/manifest.json
+.agentura/baseline.json

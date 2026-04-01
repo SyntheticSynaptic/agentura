@@ -50,6 +50,40 @@ function buildExampleDataset(): string {
 `;
 }
 
+const GITIGNORE_ENTRIES = [
+  ".agentura/eval-runs/",
+  ".agentura/traces/",
+  ".agentura/manifest.json",
+  ".agentura/baseline.json",
+];
+
+async function appendGitignoreEntries(cwd: string): Promise<void> {
+  const gitignorePath = path.resolve(cwd, ".gitignore");
+  let existing = "";
+
+  try {
+    existing = await fs.readFile(gitignorePath, "utf-8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+      throw error;
+    }
+  }
+
+  const missing = GITIGNORE_ENTRIES.filter((entry) => !existing.includes(entry));
+  if (missing.length === 0) {
+    return;
+  }
+
+  const block =
+    "\n# Agentura local evidence (eval runs, traces, baselines)\n" +
+    "# Reference snapshots are excluded so drift detection works in CI\n" +
+    missing.join("\n") +
+    "\n";
+
+  await fs.writeFile(gitignorePath, existing + block, "utf-8");
+  console.log(chalk.green("✓ Added .agentura artifacts to .gitignore"));
+}
+
 export async function initCommand(): Promise<void> {
   const configPath = path.resolve(process.cwd(), "agentura.yaml");
 
@@ -82,6 +116,8 @@ export async function initCommand(): Promise<void> {
 
   await fs.writeFile(configPath, buildAgenturaYaml(endpoint, timeoutMs), "utf-8");
   console.log(chalk.green("✓ Created agentura.yaml"));
+
+  await appendGitignoreEntries(process.cwd());
 
   if (createExamples) {
     const evalsDir = path.resolve(process.cwd(), "evals");

@@ -28,3 +28,18 @@ To use a specific model, set the env var:
 OLLAMA_EMBED_MODEL=your-model-name
 OLLAMA_MODEL=your-judge-model
 ```
+
+## Data and privacy
+
+Agentura writes all eval evidence to `.agentura/` in your project directory. Nothing is sent to external servers when running with `--local`.
+
+What stays on disk:
+- `.agentura/eval-runs/` — per-run eval records
+- `.agentura/traces/` — consensus and trace outputs
+- `.agentura/baseline.json` — regression baseline
+- `.agentura/manifest.json` — audit manifest
+
+What you may want to commit:
+- `.agentura/reference/` — frozen reference snapshots, so drift detection works consistently in CI
+
+The default .gitignore added by `agentura init` excludes runtime artifacts and keeps reference snapshots. You control your data lifecycle — nothing is retained externally.
