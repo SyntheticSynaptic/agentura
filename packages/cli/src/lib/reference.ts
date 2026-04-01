@@ -2,7 +2,10 @@ import { createHash, randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 
+import yaml from "js-yaml";
 import {
+  callCliAgent,
+  callHttpAgent,
   callSdkAgent,
   getCaseInput,
   scoreSemanticSimilarity,
@@ -334,7 +337,7 @@ export async function createReferenceSnapshot(options: {
   cwd: string;
   label: string;
   datasetPath: string;
-  agentModule: string;
+  agentFn: AgentFunction;
   force?: boolean;
 }): Promise<ReferenceSnapshotMetadata> {
   const referenceDirectory = path.join(
@@ -357,8 +360,7 @@ export async function createReferenceSnapshot(options: {
     }
   }
 
-  const agentFn = await createSdkReferenceAgent(options.agentModule, options.cwd);
-  const snapshot = await runDatasetAgainstAgent(options.cwd, options.datasetPath, agentFn);
+  const snapshot = await runDatasetAgainstAgent(options.cwd, options.datasetPath, options.agentFn);
 
   await ensureDirectory(referenceDirectory);
   await fs.writeFile(
@@ -376,7 +378,7 @@ export async function createReferenceSnapshot(options: {
     case_count: snapshot.outputs.length,
     model: snapshot.model,
     prompt_hash: snapshot.promptHash,
-    agent_module: options.agentModule,
+    agent_module: null,
   };
 
   await writeJsonFile(path.join(referenceDirectory, METADATA_FILE_NAME), metadata);
@@ -541,6 +543,120 @@ export async function writeDriftToManifest(
   });
 
   return manifestPath;
+}
+
+interface YamlAgentConfig {
+  type: "cli" | "http" | "sdk";
+  command?: string;
+  endpoint?: string;
+  module?: string;
+  timeout_ms?: number;
+  headers?: Record<string, string>;
+}
+
+interface AgenturaYamlFile {
+  agent?: YamlAgentConfig;
+  evals?: Array<{ dataset?: string; [key: string]: unknown }>;
+}
+
+async function readAgenturaYaml(cwd: string): Promise<AgenturaYamlFile> {
+  const raw = await fs.readFile(path.join(cwd, "agentura.yaml"), "utf-8");
+  return (yaml.load(raw) as AgenturaYamlFile | null) ?? {};
+}
+
+export async function loadFirstDatasetFromConfig(cwd: string): Promise<string | null> {
+  const parsed = await readAgenturaYaml(cwd);
+  return parsed.evals?.[0]?.dataset ?? null;
+}
+
+export async function createAgentFunctionFromConfig(cwd: string): Promise<AgentFunction> {
+  const parsed = await readAgenturaYaml(cwd);
+
+  if (!parsed.agent) {
+    throw new Error("agentura.yaml does not define an agent section");
+  }
+
+  const agent = parsed.agent;
+  const timeoutMs = agent.timeout_ms ?? 30_000;
+
+  if (agent.type === "http") {
+    if (!agent.endpoint) {
+      throw new Error("agentura.yaml agent.endpoint is required for http agents");
+    }
+    const endpoint = agent.endpoint;
+    const headers = agent.headers;
+    return async (input: string, options) => {
+      const result = await callHttpAgent({ endpoint, input, history: options?.history, timeoutMs, headers });
+      if (result.output === null) {
+        throw new Error(result.errorMessage ?? "HTTP agent call failed");
+      }
+      return {
+        output: result.output,
+        latencyMs: result.latencyMs,
+        inputTokens: result.inputTokens,
+        outputTokens: result.outputTokens,
+        tool_calls: result.tool_calls,
+        model: result.model,
+        modelVersion: result.modelVersion,
+        promptHash: result.promptHash,
+        startedAt: result.startedAt,
+        completedAt: result.completedAt,
+        estimatedCostUsd: result.estimatedCostUsd,
+      };
+    };
+  }
+
+  if (agent.type === "cli") {
+    if (!agent.command) {
+      throw new Error("agentura.yaml agent.command is required for cli agents");
+    }
+    const command = agent.command;
+    return async (input: string, options) => {
+      const result = await callCliAgent({ command, input, history: options?.history, timeoutMs, cwd, env: process.env });
+      if (result.output === null) {
+        throw new Error(result.errorMessage ?? "CLI agent call failed");
+      }
+      return {
+        output: result.output,
+        latencyMs: result.latencyMs,
+        inputTokens: result.inputTokens,
+        outputTokens: result.outputTokens,
+        tool_calls: result.tool_calls,
+        model: result.model,
+        modelVersion: result.modelVersion,
+        promptHash: result.promptHash,
+        startedAt: result.startedAt,
+        completedAt: result.completedAt,
+        estimatedCostUsd: result.estimatedCostUsd,
+      };
+    };
+  }
+
+  // SDK agent
+  if (!agent.module) {
+    throw new Error("agentura.yaml agent.module is required for sdk agents");
+  }
+  const modulePath = agent.module;
+  return async (input: string, options) => {
+    const sdkFn = await loadSdkAgentFunction(modulePath, cwd);
+    const result = await callSdkAgent({ input, agentFn: sdkFn, options });
+    if (result.output === null) {
+      throw new Error(result.errorMessage ?? "SDK agent call failed");
+    }
+    return {
+      output: result.output,
+      latencyMs: result.latencyMs,
+      inputTokens: result.inputTokens,
+      outputTokens: result.outputTokens,
+      tool_calls: result.tool_calls,
+      model: result.model,
+      modelVersion: result.modelVersion,
+      promptHash: result.promptHash,
+      startedAt: result.startedAt,
+      completedAt: result.completedAt,
+      estimatedCostUsd: result.estimatedCostUsd,
+    };
+  };
 }
 
 export const __testing = {

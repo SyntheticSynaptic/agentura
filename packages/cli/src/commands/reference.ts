@@ -8,9 +8,11 @@ import type { DriftThresholdConfig } from "@agentura/types";
 
 import {
   appendDriftHistory,
+  createAgentFunctionFromConfig,
   createReferenceSnapshot,
   DEFAULT_DRIFT_THRESHOLDS,
   diffAgainstReference,
+  loadFirstDatasetFromConfig,
   readDriftHistory,
   writeDriftToManifest,
 } from "../lib/reference";
@@ -31,7 +33,6 @@ function getCliVersion(): string {
 }
 
 interface ReferenceSnapshotCommandOptions {
-  agent?: string;
   dataset?: string;
   label?: string;
   force?: boolean;
@@ -198,23 +199,29 @@ function printHistoryTable(
 export async function referenceSnapshotCommand(
   options: ReferenceSnapshotCommandOptions
 ): Promise<void> {
-  if (!options.agent) {
-    throw new Error("reference snapshot requires --agent <path>");
-  }
-
-  if (!options.dataset) {
-    throw new Error("reference snapshot requires --dataset <path>");
-  }
-
   if (!options.label) {
     throw new Error("reference snapshot requires --label <name>");
   }
 
+  const cwd = process.cwd();
+  const agentFn = await createAgentFunctionFromConfig(cwd);
+
+  let datasetPath = options.dataset;
+  if (!datasetPath) {
+    const defaultDataset = await loadFirstDatasetFromConfig(cwd);
+    if (!defaultDataset) {
+      throw new Error(
+        "reference snapshot requires --dataset <path> or a dataset defined in agentura.yaml"
+      );
+    }
+    datasetPath = defaultDataset;
+  }
+
   const metadata = await createReferenceSnapshot({
-    cwd: process.cwd(),
+    cwd,
     label: options.label,
-    datasetPath: options.dataset,
-    agentModule: options.agent,
+    datasetPath,
+    agentFn,
     force: options.force,
   });
 
@@ -224,6 +231,7 @@ export async function referenceSnapshotCommand(
   if (metadata.model) {
     console.log(`  Model: ${metadata.model}`);
   }
+  process.exit(0);
 }
 
 export async function referenceDiffCommand(
@@ -233,15 +241,18 @@ export async function referenceDiffCommand(
     throw new Error("reference diff requires --against <label>");
   }
 
-  const thresholds = await loadConfiguredThresholds(process.cwd());
+  const cwd = process.cwd();
+  const thresholds = await loadConfiguredThresholds(cwd);
+  const agentFn = await createAgentFunctionFromConfig(cwd);
   const result = await diffAgainstReference({
-    cwd: process.cwd(),
+    cwd,
     label: options.against,
     thresholds,
+    agentFn,
   });
 
-  await appendDriftHistory(process.cwd(), result);
-  await writeDriftToManifest(process.cwd(), result, {
+  await appendDriftHistory(cwd, result);
+  await writeDriftToManifest(cwd, result, {
     cliVersion: getCliVersion(),
     commit: null,
   });
@@ -251,9 +262,11 @@ export async function referenceDiffCommand(
   if (result.threshold_breaches.length > 0) {
     process.exit(1);
   }
+  process.exit(0);
 }
 
 export async function referenceHistoryCommand(): Promise<void> {
   const history = await readDriftHistory(process.cwd());
   printHistoryTable(history);
+  process.exit(0);
 }

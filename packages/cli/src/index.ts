@@ -104,9 +104,8 @@ const referenceProgram = program
 
 referenceProgram
   .command("snapshot")
-  .description("Freeze current SDK agent outputs for a dataset under a named label")
-  .requiredOption("--agent <path>", "Path to the SDK agent module to snapshot")
-  .requiredOption("--dataset <path>", "Dataset to run when capturing the snapshot")
+  .description("Freeze current agent outputs for a dataset under a named label")
+  .option("--dataset <path>", "Dataset to run; defaults to the first dataset in agentura.yaml")
   .requiredOption("--label <name>", "Reference label, for example v1.0-pre-prompt-change")
   .option("--force", "Overwrite an existing reference snapshot with the same label")
   .action(referenceSnapshotCommand);
