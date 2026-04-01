@@ -19,6 +19,7 @@ import {
 } from "./reference";
 
 const EVAL_RUN_ROOT = path.join(".agentura", "eval-runs");
+const AUDIT_MANIFEST_FILE = "manifest.jsonl";
 const AUDIT_RECORD_VERSION = 1 as const;
 
 export interface AuditTraceToolRecord {
@@ -73,6 +74,37 @@ export interface EvalRunAuditRecord {
   prompt_hashes: string[];
   suites: EvalRunAuditSuite[];
   traces: AuditTraceRecord[];
+}
+
+interface ContractAssertionEntry {
+  type: string;
+  passed: boolean;
+  field?: string;
+  observed: unknown;
+  expected: string;
+  message: string;
+}
+
+interface ContractAuditEntry {
+  type: "contract_result";
+  run_id: string;
+  timestamp: string;
+  contract_name: string;
+  contract_version: string;
+  eval_suite: string;
+  case_id: string;
+  failure_mode: "hard_fail" | "soft_fail" | "escalation_required";
+  passed: boolean;
+  assertions: ContractAssertionEntry[];
+}
+
+interface ContractRowSummary {
+  contractName: string;
+  suiteName: string;
+  totalAssertions: number;
+  hardFails: number;
+  escalations: number;
+  softFails: number;
 }
 
 interface ReportSummary {
@@ -363,6 +395,140 @@ async function readTraceFilesSince(agenturaDir: string, since: string): Promise<
   return traces.filter((trace): trace is AuditTraceRecord => trace !== null);
 }
 
+async function readContractResultsSince(
+  agenturaDir: string,
+  since: string
+): Promise<ContractAuditEntry[]> {
+  const after = readDate(since);
+  const filePath = path.join(agenturaDir, AUDIT_MANIFEST_FILE);
+  let raw: string;
+
+  try {
+    raw = await fs.readFile(filePath, "utf-8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return [];
+    }
+    throw error;
+  }
+
+  const entries: ContractAuditEntry[] = [];
+  for (const line of raw.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    try {
+      const entry = JSON.parse(trimmed) as { type?: string; timestamp?: string };
+      if (entry.type === "contract_result" && typeof entry.timestamp === "string") {
+        if (readDate(entry.timestamp) >= after) {
+          entries.push(entry as ContractAuditEntry);
+        }
+      }
+    } catch {
+      // skip malformed lines
+    }
+  }
+
+  return entries;
+}
+
+function buildContractRowSummaries(entries: ContractAuditEntry[]): ContractRowSummary[] {
+  const byKey = new Map<string, ContractRowSummary>();
+
+  for (const entry of entries) {
+    const key = `${entry.contract_name}|${entry.eval_suite}`;
+    const existing = byKey.get(key) ?? {
+      contractName: entry.contract_name,
+      suiteName: entry.eval_suite,
+      totalAssertions: 0,
+      hardFails: 0,
+      escalations: 0,
+      softFails: 0,
+    };
+
+    existing.totalAssertions += entry.assertions.length;
+    if (!entry.passed) {
+      if (entry.failure_mode === "hard_fail") existing.hardFails += 1;
+      else if (entry.failure_mode === "escalation_required") existing.escalations += 1;
+      else if (entry.failure_mode === "soft_fail") existing.softFails += 1;
+    }
+
+    byKey.set(key, existing);
+  }
+
+  return [...byKey.values()];
+}
+
+function renderContractSummarySection(entries: ContractAuditEntry[]): string {
+  if (entries.length === 0) {
+    return `<section class="panel">
+      <h2>Contract Summary</h2>
+      <p class="muted">No contract evaluations recorded in this date range.</p>
+    </section>`;
+  }
+
+  const rows = buildContractRowSummaries(entries);
+  const summaryTable = renderTable(
+    ["Contract", "Suite", "Assertions", "Hard Fails", "Escalations", "Soft Fails"],
+    rows.map((row) => [
+      escapeHtml(row.contractName),
+      escapeHtml(row.suiteName),
+      String(row.totalAssertions),
+      row.hardFails > 0 ? `<span class="badge warn">${String(row.hardFails)}</span>` : "0",
+      row.escalations > 0 ? `<span class="badge escalation">${String(row.escalations)}</span>` : "0",
+      row.softFails > 0 ? String(row.softFails) : "0",
+    ])
+  );
+
+  const hardFailEntries = entries.filter(
+    (e) => e.failure_mode === "hard_fail" && !e.passed
+  );
+  const escalationEntries = entries.filter(
+    (e) => e.failure_mode === "escalation_required" && !e.passed
+  );
+
+  const hardFailList =
+    hardFailEntries.length === 0
+      ? "<p class=\"muted\">No hard failures recorded.</p>"
+      : `<ul class="list">${hardFailEntries
+          .map((e) => {
+            const failed = e.assertions.filter((a) => !a.passed);
+            return failed.map((a) => {
+              const fieldPart = a.field ? ` ${escapeHtml(a.field)} =` : "";
+              const observed =
+                a.observed !== null && a.observed !== undefined
+                  ? escapeHtml(JSON.stringify(a.observed))
+                  : "null";
+              return `<li><strong>${escapeHtml(e.contract_name)} / ${escapeHtml(e.case_id)}</strong>: ${escapeHtml(a.type)} failed:${fieldPart} ${observed}</li>`;
+            }).join("");
+          })
+          .join("")}</ul>`;
+
+  const escalationList =
+    escalationEntries.length === 0
+      ? "<p class=\"muted\">No escalations recorded.</p>"
+      : `<ul class="list">${escalationEntries
+          .map((e) => {
+            const failed = e.assertions.filter((a) => !a.passed);
+            return failed.map((a) => {
+              const observed =
+                a.observed !== null && a.observed !== undefined
+                  ? escapeHtml(String(a.observed))
+                  : "null";
+              return `<li class="escalation-item"><strong>${escapeHtml(e.contract_name)} / ${escapeHtml(e.case_id)}</strong>: ${escapeHtml(a.type)} ${observed} (threshold: ${escapeHtml(a.expected)})</li>`;
+            }).join("");
+          })
+          .join("")}</ul>`;
+
+  return `<section class="panel">
+      <h2>Contract Summary</h2>
+      ${summaryTable}
+      <h3>Hard failures (merge-blocking)</h3>
+      ${hardFailList}
+      <h3>Escalations required</h3>
+      ${escalationList}
+    </section>`;
+}
+
 function dedupeTraces(traces: AuditTraceRecord[]): AuditTraceRecord[] {
   const byId = new Map<string, AuditTraceRecord>();
   traces.forEach((trace) => {
@@ -538,6 +704,7 @@ function renderClinicalAuditHtml(options: {
   summary: ReportSummary;
   latestRun: EvalRunAuditRecord | null;
   traces: AuditTraceRecord[];
+  contractEntries: ContractAuditEntry[];
   driftThresholds: DriftThresholdConfig;
   currentDrift: DriftComparisonResult;
   driftTrend: DriftComparisonResult[];
@@ -642,6 +809,7 @@ function renderClinicalAuditHtml(options: {
         --muted: #5b6473;
         --ok: #0f766e;
         --warn: #b45309;
+        --escalation: #c2410c;
         --accent: #0f172a;
       }
       * { box-sizing: border-box; }
@@ -711,6 +879,13 @@ function renderClinicalAuditHtml(options: {
       .badge.warn {
         background: rgba(180, 83, 9, 0.12);
         color: var(--warn);
+      }
+      .badge.escalation {
+        background: rgba(194, 65, 12, 0.12);
+        color: var(--escalation);
+      }
+      .escalation-item {
+        color: var(--escalation);
       }
       table {
         width: 100%;
@@ -808,6 +983,8 @@ function renderClinicalAuditHtml(options: {
         ${datasetHashRows.length > 0 ? renderTable(["Suite", "Dataset hash"], datasetHashRows) : "<p class=\"muted\">No dataset hashes recorded.</p>"}
       </section>
 
+      ${renderContractSummarySection(options.contractEntries)}
+
       <section class="panel">
         <h2>Consensus Log</h2>
         ${renderKeyValueGrid([
@@ -902,9 +1079,10 @@ export async function generateClinicalAuditReport(
   // consistent with how agentura run writes evidence.
   const agenturaDir = path.join(process.cwd(), ".agentura");
 
-  const [auditRecords, traceFiles, driftThresholds, driftHistory] = await Promise.all([
+  const [auditRecords, traceFiles, contractEntries, driftThresholds, driftHistory] = await Promise.all([
     readEvalRunAuditRecordsSince(agenturaDir, options.since),
     readTraceFilesSince(agenturaDir, options.since),
+    readContractResultsSince(agenturaDir, options.since),
     loadConfiguredThresholds(options.cwd),
     readDriftHistory(options.cwd),
   ]);
@@ -952,6 +1130,7 @@ export async function generateClinicalAuditReport(
     summary,
     latestRun,
     traces: combinedTraces,
+    contractEntries,
     driftThresholds,
     currentDrift,
     driftTrend: relevantDriftHistory,
