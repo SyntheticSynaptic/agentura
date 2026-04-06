@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.7.0] — 2026-04-05
+
+### Added
+- `agentura trend` — cross-run pass rate trend analysis across consecutive CI
+  runs; OLS slope with `improving` / `stable` / `degrading` classification;
+  `--window N` flag (default 20); `--fail-on-regression` exits 1 when slope
+  < -0.01/run
+- Run trend section in `agentura report` — inline SVG sparkline in HTML,
+  plain text table in markdown
+- PCCP Readiness Signals now powered by trend slope instead of single-run
+  inference — PASS if slope ≥ 0, WARN if slope < -0.005, FAIL if slope < -0.01
+- `agentura report --format pdf` — renders existing HTML report to PDF via
+  puppeteer; A4 format with print backgrounds
+
+### Fixed
+- punycode DEP0040 deprecation warning resolved via groq-sdk upgrade
+- `llm_judge` default model updated to `claude-haiku-4-5-20251001`
+- Groq `semantic_similarity` now fails loudly with an actionable error instead
+  of silently returning incorrect scores
+
 ## [0.6.0] - 2026-04-01
 
 ### Added
