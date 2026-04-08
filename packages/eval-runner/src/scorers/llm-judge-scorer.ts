@@ -14,7 +14,7 @@ export interface LlmJudgeScore {
   reason: string;
 }
 
-export type LlmJudgeProvider = "anthropic" | "openai" | "gemini" | "groq" | "ollama";
+export type LlmJudgeProvider = "anthropic" | "openai" | "gemini" | "groq" | "ollama" | "minimax";
 
 export interface ResolvedLlmJudgeProvider {
   provider: LlmJudgeProvider;
@@ -24,7 +24,7 @@ export interface ResolvedLlmJudgeProvider {
 }
 
 export const NO_LLM_JUDGE_API_KEY_WARNING =
-  "llm_judge needs a language model to run.\nAdd an API key for Anthropic, OpenAI, Gemini, or Groq,\nor start Ollama locally (ollama.com).\nThis suite will be skipped.";
+  "llm_judge needs a language model to run.\nAdd an API key for Anthropic, OpenAI, Gemini, Groq, or MiniMax,\nor start Ollama locally (ollama.com).\nThis suite will be skipped.";
 
 interface AnthropicMessageResponse {
   content?: Array<{
@@ -117,6 +117,7 @@ type OpenAIClientFactory = (apiKey: string) => OpenAIClientLike;
 type GeminiClientFactory = (apiKey: string) => GeminiClientLike;
 type GroqClientFactory = (apiKey: string) => GroqClientLike;
 type OllamaClientFactory = (baseUrl: string) => OllamaClientLike;
+type MiniMaxClientFactory = (apiKey: string) => AnthropicClientLike;
 
 export interface LlmJudgeClientFactories {
   anthropic: AnthropicClientFactory;
@@ -124,10 +125,29 @@ export interface LlmJudgeClientFactories {
   gemini: GeminiClientFactory;
   groq: GroqClientFactory;
   ollama: OllamaClientFactory;
+  minimax: MiniMaxClientFactory;
 }
 
 const defaultAnthropicClientFactory: AnthropicClientFactory = (apiKey) =>
   new Anthropic({ apiKey }) as unknown as AnthropicClientLike;
+
+const defaultMiniMaxClientFactory: MiniMaxClientFactory = (apiKey) => {
+  const client = new Anthropic({
+    apiKey,
+    baseURL: "https://api.minimax.io/anthropic",
+  });
+  return {
+    messages: {
+      create: async (params) => {
+        return client.messages.create({
+          ...params,
+          // MiniMax requires temperature > 0; clamp 0 to 0.1
+          temperature: params.temperature > 0 ? params.temperature : 0.1,
+        }) as unknown as Promise<AnthropicMessageResponse>;
+      },
+    },
+  };
+};
 
 const defaultOpenAIClientFactory: OpenAIClientFactory = (apiKey) =>
   new OpenAI({ apiKey }) as unknown as OpenAIClientLike;
@@ -173,11 +193,12 @@ const defaultClientFactories: LlmJudgeClientFactories = {
   gemini: defaultGeminiClientFactory,
   groq: defaultGroqClientFactory,
   ollama: defaultOllamaClientFactory,
+  minimax: defaultMiniMaxClientFactory,
 };
 
 const JUDGE_PROVIDER_PRIORITY: Array<{
   provider: LlmJudgeProvider;
-  envVar: "ANTHROPIC_API_KEY" | "OPENAI_API_KEY" | "GEMINI_API_KEY" | "GROQ_API_KEY";
+  envVar: "ANTHROPIC_API_KEY" | "OPENAI_API_KEY" | "GEMINI_API_KEY" | "GROQ_API_KEY" | "MINIMAX_API_KEY";
   model: string;
 }> = [
   {
@@ -199,6 +220,11 @@ const JUDGE_PROVIDER_PRIORITY: Array<{
     provider: "groq",
     envVar: "GROQ_API_KEY",
     model: "llama-3.1-8b-instant",
+  },
+  {
+    provider: "minimax",
+    envVar: "MINIMAX_API_KEY",
+    model: "MiniMax-M2.7",
   },
 ];
 
@@ -335,6 +361,24 @@ export async function scoreLlmJudge(
 
     if (judge.provider === "anthropic") {
       const client = clientFactories.anthropic(judge.apiKey);
+      const response = await client.messages.create({
+        model: judge.model,
+        temperature: 0,
+        max_tokens: 1024,
+        system: systemPrompt,
+        messages: [{ role: "user", content: userPrompt }],
+      });
+
+      const responseText = extractAnthropicText(response);
+      if (!responseText) {
+        return { score: 0, reason: "Judge response parse error" };
+      }
+
+      return parseJudgeJson(responseText);
+    }
+
+    if (judge.provider === "minimax") {
+      const client = clientFactories.minimax(judge.apiKey);
       const response = await client.messages.create({
         model: judge.model,
         temperature: 0,
