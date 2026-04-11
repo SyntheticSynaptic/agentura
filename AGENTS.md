@@ -1,5 +1,4 @@
 # Agentura — AGENTS.md
-# Automatically read by Codex at the start of every session.
 # Source of truth for stack, standards, and operating rules.
 # Do NOT modify during implementation. Update Documentation.md instead.
 
