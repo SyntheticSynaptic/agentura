@@ -89,6 +89,21 @@ function createClientFactories(
         };
       },
     }),
+    minimax: () => ({
+      messages: {
+        create: async (params) => {
+          calls.push({ provider: "minimax", model: params.model });
+          return {
+            content: [
+              {
+                type: "text",
+                text: responseText,
+              },
+            ],
+          };
+        },
+      },
+    }),
   };
 }
 
@@ -204,7 +219,7 @@ test("resolveLlmJudgeProvider returns null and keeps the exact warning text when
   assert.equal(await resolveLlmJudgeProvider({}, { ollamaAvailable: false }), null);
   assert.equal(
     NO_LLM_JUDGE_API_KEY_WARNING,
-    "llm_judge needs a language model to run.\nAdd an API key for Anthropic, OpenAI, Gemini, or Groq,\nor start Ollama locally (ollama.com).\nThis suite will be skipped."
+    "llm_judge needs a language model to run.\nAdd an API key for Anthropic, OpenAI, Gemini, Groq, or MiniMax,\nor start Ollama locally (ollama.com).\nThis suite will be skipped."
   );
 });
 
@@ -319,4 +334,68 @@ test("scoreLlmJudge clamps score below 0 to 0", async () => {
 
   assert.equal(result.score, 0);
   assert.equal(result.reason, "Too low");
+});
+
+test("resolveLlmJudgeProvider picks minimax when MINIMAX_API_KEY is set and no higher priority key exists", async () => {
+  resetOllamaTestState();
+
+  const judge = await resolveLlmJudgeProvider(
+    { MINIMAX_API_KEY: "minimax-key" },
+    { ollamaAvailable: false }
+  );
+
+  assert.deepEqual(judge, {
+    provider: "minimax",
+    apiKey: "minimax-key",
+    model: "MiniMax-M2.7",
+  });
+});
+
+test("resolveLlmJudgeProvider prefers anthropic over minimax when both keys are set", async () => {
+  resetOllamaTestState();
+
+  const judge = await resolveLlmJudgeProvider(
+    {
+      ANTHROPIC_API_KEY: "anthropic-key",
+      MINIMAX_API_KEY: "minimax-key",
+    },
+    { ollamaAvailable: false }
+  );
+
+  assert.deepEqual(judge, {
+    provider: "anthropic",
+    apiKey: "anthropic-key",
+    model: "claude-haiku-4-5-20251001",
+  });
+});
+
+test("scoreLlmJudge uses the minimax client and configured model", async () => {
+  const calls: Array<{ provider: string; model: string }> = [];
+
+  const result = await scoreLlmJudge(
+    "What is 2+2?",
+    "It is 4",
+    "Give full score for correct answers.",
+    createJudge("minimax", "MiniMax-M2.7"),
+    undefined,
+    createClientFactories('{"score":0.95,"reason":"Correct answer."}', calls)
+  );
+
+  assert.equal(result.score, 0.95);
+  assert.equal(result.reason, "Correct answer.");
+  assert.deepEqual(calls, [{ provider: "minimax", model: "MiniMax-M2.7" }]);
+});
+
+test("scoreLlmJudge returns parse error on invalid JSON from minimax", async () => {
+  const result = await scoreLlmJudge(
+    "Question",
+    "Answer",
+    "Rubric",
+    createJudge("minimax", "MiniMax-M2.7"),
+    undefined,
+    createClientFactories("not-json", [])
+  );
+
+  assert.equal(result.score, 0);
+  assert.equal(result.reason, "Judge response parse error");
 });
